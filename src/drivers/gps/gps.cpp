@@ -425,6 +425,7 @@ int GPS::pollOrRead(uint8_t *buf, size_t buf_length, int timeout)
 
 			ret = ::read(_serial_fd, buf, buf_length);
 
+
 		} else {
 			ret = -1;
 		}
@@ -436,7 +437,8 @@ int GPS::pollOrRead(uint8_t *buf, size_t buf_length, int timeout)
 	/* For QURT, just use read for now, since this doesn't block, we need to slow it down
 	 * just a bit. */
 	usleep(10000);
-	return ::read(_serial_fd, buf, buf_length);
+	int ret = ::read(_serial_fd, buf, buf_length);
+	return ret;
 #endif
 }
 
@@ -658,6 +660,8 @@ GPS::task_main()
 	/* open the serial port */
 	_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
 
+	PX4_INFO("GPS fd: %d", _serial_fd);
+
 	if (_serial_fd < 0) {
 		PX4_ERR("GPS: failed to open serial port: %s err: %d", _port, errno);
 
@@ -677,6 +681,8 @@ GPS::task_main()
 	while (!_task_should_exit) {
 
 		if (_fake_gps) {
+
+			PX4_INFO("fake gps");
 			_report_gps_pos.timestamp = hrt_absolute_time();
 			_report_gps_pos.lat = (int32_t)47.378301e7f;
 			_report_gps_pos.lon = (int32_t)8.538777e7f;
@@ -720,6 +726,8 @@ GPS::task_main()
 			//no break
 			case GPS_DRIVER_MODE_UBX:
 				_helper = new GPSDriverUBX(_interface, &GPS::callback, this, &_report_gps_pos, _p_report_sat_info);
+
+				PX4_INFO("gps driver mode ubx");
 				break;
 
 			case GPS_DRIVER_MODE_MTK:
@@ -759,6 +767,7 @@ GPS::task_main()
 					_report_gps_pos.epv = 10000.0f;
 					_report_gps_pos.fix_type = 0;
 
+					PX4_INFO("gps pos: %.6f", (double)_report_gps_pos.vel_n_m_s);
 					publish();
 
 					/* GPS is obviously detected successfully, reset statistics */

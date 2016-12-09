@@ -137,16 +137,6 @@ private:
 	float goldenSectionSearch(const matrix::Vector3f &pose);
 
 
-
-
-
-
-
-
-
-
-
-
 };
 }
 
