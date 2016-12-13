@@ -324,7 +324,7 @@ MissionBlock::is_mission_item_reached()
 									_navigator->get_global_position()->alt,
 									&dist_xy_next, &dist_z_next);
 
-				if(line0.distance > line1.distance && dist < dist_next){
+				if(( fabsf(line0.distance) > fabsf(line1.distance) ) && (fabsf(dist) < fabsf(dist_next))){
 					_waypoint_position_reached = true;
 				}
 

@@ -265,6 +265,9 @@ private:
 	bool _hold_offboard_xy = false;
 	bool _hold_offboard_z = false;
 
+	bool _triplet_update = false; // changes when position triplet have updated (in position)
+	bool _do_bez_corner = false; // specifies if vehicle does a turner when in mission
+
 	matrix::Vector3f _thrust_int;
 
 	matrix::Vector3f _pos;
@@ -1413,6 +1416,11 @@ void MulticopterPositionControl::control_auto(float dt)
 		    PX4_ISFINITE(curr_sp(2))) {
 			current_setpoint_valid = true;
 		}
+
+		/* check if new triplets are available */
+		if((curr_sp - _bez.getCtrl()).length() > SIGMA){
+			_triplet_update = true;
+		}
 	}
 
 	if (_pos_sp_triplet.previous.valid) {
@@ -1621,68 +1629,105 @@ void MulticopterPositionControl::control_auto(float dt)
 		// acceleration feed forward not implemented yet
 		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION  ){
 
-			/* initalize bezier points */
-			matrix::Vector3f prev_pt;
-			matrix::Vector3f ctrl_pt;
-			matrix::Vector3f next_pt;
 
+			/* for now we do not use acceleration, so just initializi here */
 			matrix::Vector3f acc_request;
 
-			/* we have a corner */
+			/* we have three points */
 			if( previous_setpoint_valid && next_setpoint_valid){
 
-				bool do_corner = false;
 
-				PX4_INFO("all valid");
+				/* we only need to compute new bezier points if triplet changed and we are close to next point */
+				if( _triplet_update && (_bez.getPt1() - _pos).length() > 2.0f){
 
-				/* desired velocity before and after corner turn */
-				matrix::Vector3f vel0 = (curr_sp - prev_sp).normalized() * _params.vel_cruise(0);
-				matrix::Vector3f vel1 = (next_sp - curr_sp).normalized() * _params.vel_cruise(0);
+					/* initalize bezier points */
+					matrix::Vector3f prev_pt;
+					matrix::Vector3f ctrl_pt;
+					matrix::Vector3f next_pt;
 
 
-				/* compute bezier points for corner time horizon of 1.0 */
-				_bez.computeBezFromVel(curr_sp, vel0, vel1, 1.0f);
+					/* desired velocity before and after corner turn */
+					matrix::Vector3f vel0 = (curr_sp - prev_sp).normalized() * _params.vel_cruise(0);
+					matrix::Vector3f vel1 = (next_sp - curr_sp).normalized() * _params.vel_cruise(0);
 
-				/* compute required acceleration */
-				float max_acc = 1.0f;
-				_bez.getAcceleration(acc_request);
 
-				/* check if acceleration is satisfied */
-				if(acc_request.length() > max_acc ){
+					/* compute bezier points  */
+					_bez.computeBezFromVel(curr_sp, vel0, vel1);
 
-					/* compute time required for turn with required acceleration */
-					float time = (vel1 - vel0).length() / max_acc;
-					PX4_INFO("time: %.6f",(double)time);
-
-					/* update bezier points with new time */
-					_bez.computeBezFromVel(curr_sp, vel0, vel1, time);
-
+					/* compute acceleration required for path */
+					float max_acc = 0.5f;
 					_bez.getAcceleration(acc_request);
-					PX4_INFO("acceleeratin after time: %.6f", (double)acc_request.length());
+
+					/* check if acceleration is satisfied */
+					if(acc_request.length() > max_acc ){
+
+						/* compute time required for turn with required acceleration */
+						float time = (vel1 - vel0).length() / max_acc;
+						PX4_INFO("time: %.6f",(double)time);
+
+						/* update bezier points with new time */
+						_bez.computeBezFromVel(curr_sp, vel0, vel1, time);
+
+						_bez.getAcceleration(acc_request);
+						PX4_INFO("acceleeratin after time: %.6f", (double)acc_request.length());
+					}
+
+					/* check if bezier points are not too far away from curr_sp relative to the distance
+					 *  to pervious and next point */
+					matrix::Vector3f dist_0 = (curr_sp - _bez.getPt0());
+					matrix::Vector3f dist_1 = (_bez.getPt1() - curr_sp);
+					matrix::Vector3f dist_0_tot = (curr_sp - prev_sp);
+					matrix::Vector3f dist_1_tot = (next_sp - curr_sp);
+					bool pt0_too_far = (dist_0.length() > dist_0_tot.length()/2.0f);
+					bool pt1_too_far = (dist_1.length() > dist_1_tot.length()/2.0f);
+
+					/* bezier points are more than half distance from curr_sp to prev_sp/next_sp */
+					if( pt0_too_far || pt1_too_far ){
+
+						if(pt0_too_far){
+							PX4_INFO("pt0 too far");
+							prev_pt = curr_sp - dist_0_tot.normalized() * dist_0_tot.length()/2.0f;
+							_bez.setBezier(prev_pt, curr_sp, _bez.getPt1());
+
+						}
+
+						if(pt1_too_far){
+							PX4_INFO("pt1 too far");
+							next_pt = curr_sp + dist_1_tot.normalized() * dist_1_tot.length()/2.0f;
+							_bez.setBezier(_bez.getPt0(), curr_sp, next_pt);
+						}
+					}
+
+
+					/* reset triplets since we just updated*/
+					_triplet_update = false;
 				}
 
-				/* get bezier points */
-				_bez.getBezier(prev_pt, ctrl_pt, next_pt);
 
 				/* if close to corner, do bezier */
-				if( (_pos - prev_pt ).length() < 5.0f){
-					do_corner = true;
+				if( (_pos - _bez.getPt0() ).length() < 5.0f){
+					_do_bez_corner  = true;
 				}
 
-				/* apply corner or straight line case */
-				if( do_corner){
+				if((_pos - _bez.getPt1()).length() < 5.0f){
+					_do_bez_corner = false;
+				}
 
+
+				/* apply corner or straight line case */
+				if(_do_bez_corner){
+					//PX4_INFO("do corner");
 					_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 				}else{
-					bezier::BezierQuad bezLine(prev_sp, prev_sp, prev_pt);
+					//PX4_INFO("do straight");
+					bezier::BezierQuad bezLine(prev_sp, _bez.getPt0(), _bez.getPt0());
 					bezLine.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
-					_vel_ff = _vel_ff.normalized() * _params.vel_cruise(0); //currently acceleration not implemented: hence just jo with full speed
 
 				}
 
-				PX4_INFO("velmag: %.6f",(double)_vel_ff.length());
-				PX4_INFO("accmag: %.6f \n\n",(double)acc_request.length());
+				//PX4_INFO("velmag: %.6f",(double)_vel_ff.length());
+				//X4_INFO("accmag: %.6f \n\n",(double)acc_request.length());
 
 
 			/* we only have a current setpoint: just go to that point*/
@@ -1691,11 +1736,13 @@ void MulticopterPositionControl::control_auto(float dt)
 				PX4_INFO("only current valid \n");
 
 				/* just go to that point */
-				_bez.setBezier(curr_sp, curr_sp, curr_sp);
+				_bez.setBezier(prev_sp, curr_sp, curr_sp);
 				_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 
 			}
+			/* alsways saturate velocity feed forward */
+			_vel_ff = _vel_ff.normalized() * _params.vel_cruise(0); //currently acceleration not implemented: hence just jo with full speed
 
 		}
 

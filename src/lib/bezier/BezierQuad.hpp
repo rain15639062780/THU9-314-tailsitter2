@@ -79,6 +79,21 @@ public:
 	 */
 	void getBezier(matrix::Vector3f &pt0, matrix::Vector3f &ctrl, matrix::Vector3f &pt1);
 
+	/*
+	 * get pt0
+	 */
+	matrix::Vector3f getPt0(){return _pt0;}
+
+	/*
+	 * get ctrl
+	 */
+	matrix::Vector3f getCtrl(){return _ctrl;}
+
+	/*
+	 * get pt1
+	 */
+	matrix::Vector3f getPt1(){return _pt1;}
+
 	/**
 	 * set new bezier points
 	 */
