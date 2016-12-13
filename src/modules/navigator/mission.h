@@ -49,6 +49,7 @@
 
 #include <controllib/blocks.hpp>
 #include <controllib/block/BlockParam.hpp>
+#include <lib/mathlib/mathlib.h>
 
 #include <dataman/dataman.h>
 
@@ -151,6 +152,11 @@ private:
 	 * Updates the heading of the vehicle. Rotary wings only.
 	 */
 	void heading_sp_update();
+
+	/**
+	 * compute haeding from vector
+	 */
+	float  get_yaw_along_vec(const math::Vector<3> &vec);
 
 	/**
 	 * Updates the altitude sp to follow a foh

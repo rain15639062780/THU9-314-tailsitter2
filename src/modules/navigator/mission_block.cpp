@@ -300,6 +300,36 @@ MissionBlock::is_mission_item_reached()
 				&& dist_z <= _navigator->get_altitude_acceptance_radius()) {
 				_waypoint_position_reached = true;
 			}
+
+
+			/* we have a corner */
+			if(_navigator->get_position_setpoint_triplet()->next.valid && _navigator->get_position_setpoint_triplet()->previous.valid){
+				struct crosstrack_error_s line0;
+				struct crosstrack_error_s line1;
+				get_distance_to_line(&line0,
+						_navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
+						_navigator->get_position_setpoint_triplet()->previous.lat, _navigator->get_position_setpoint_triplet()->previous.lon,
+						_navigator->get_position_setpoint_triplet()->current.lat, _navigator->get_position_setpoint_triplet()->current.lon);
+				get_distance_to_line(&line1,
+						_navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
+						_navigator->get_position_setpoint_triplet()->current.lat, _navigator->get_position_setpoint_triplet()->current.lon,
+						_navigator->get_position_setpoint_triplet()->next.lat, _navigator->get_position_setpoint_triplet()->next.lon);
+
+				float dist_next;
+				float dist_xy_next;
+				float dist_z_next;
+				dist_next = get_distance_to_point_global_wgs84(_navigator->get_position_setpoint_triplet()->next.lat,_navigator->get_position_setpoint_triplet()->next.lon, altitude_amsl,
+									_navigator->get_global_position()->lat,
+									_navigator->get_global_position()->lon,
+									_navigator->get_global_position()->alt,
+									&dist_xy_next, &dist_z_next);
+
+				if(line0.distance > line1.distance && dist < dist_next){
+					_waypoint_position_reached = true;
+				}
+
+			}
+
 		}
 
 		if (_waypoint_position_reached) {

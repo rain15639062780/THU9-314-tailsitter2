@@ -56,7 +56,7 @@
 #include <systemlib/mavlink_log.h>
 #include <systemlib/err.h>
 #include <geo/geo.h>
-#include <lib/mathlib/mathlib.h>
+
 #include <navigator/navigation.h>
 
 #include <uORB/uORB.h>
@@ -962,6 +962,30 @@ Mission::calculate_takeoff_altitude(struct mission_item_s *mission_item)
 	return takeoff_alt;
 }
 
+float
+Mission::get_yaw_along_vec(const math::Vector<3> &vec){
+
+	math::Vector<3> x(1.0f, 0.0f, 0.0f);
+	math::Vector<3> z(0.0f,0.0f,-1.0f);
+
+    /* project vec onto xy plane */
+    math::Vector<3> vec_proj = vec - z* (z * vec);
+    vec_proj /= vec_proj.length();
+
+    /* angle between vec and x */
+    float yaw = acosf(x * vec_proj);
+
+    /* check orientation using 3rd element of cross product*/
+    float cross_z;
+    cross_z = x(0)*vec_proj(1) - x(1)* vec_proj(0);
+
+    if (cross_z < 0.0f){
+    	yaw *= -1.0f;
+    }
+    return yaw;
+
+	}
+
 void
 Mission::heading_sp_update()
 {
@@ -977,6 +1001,7 @@ Mission::heading_sp_update()
 	}
 
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+	struct vehicle_global_velocity_setpoint_s *vel_sp = _navigator->get_global_velocity_sp();
 
 	/* Don't change setpoint if last and current waypoint are not valid */
 	if (!pos_sp_triplet->current.valid) {
@@ -989,6 +1014,12 @@ Mission::heading_sp_update()
 		// at the moment it will just keep the heading it has
 		//_mission_item.yaw = _on_arrival_yaw;
 		//pos_sp_triplet->current.yaw = _mission_item.yaw;
+
+	/* if waypoint and rotary wing, we just want to pass by the waypoint */
+	}else if(_mission_item.nav_cmd == NAV_CMD_WAYPOINT && _navigator->get_vstatus()->is_rotary_wing){
+		math::Vector<3> vec(vel_sp->vx, vel_sp->vy, vel_sp->vz);
+		_mission_item.yaw = get_yaw_along_vec(vec);
+		pos_sp_triplet->current.yaw = _mission_item.yaw;
 
 	} else {
 		/* Calculate direction the vehicle should point to. */
