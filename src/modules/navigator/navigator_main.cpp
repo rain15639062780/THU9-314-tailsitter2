@@ -105,6 +105,7 @@ Navigator::Navigator() :
 	_navigator_task(-1),
 	_mavlink_log_pub(nullptr),
 	_global_pos_sub(-1),
+	_global_vel_sp_sub(-1),
 	_gps_pos_sub(-1),
 	_sensor_combined_sub(-1),
 	_home_pos_sub(-1),
@@ -124,6 +125,7 @@ Navigator::Navigator() :
 	_land_detected{},
 	_control_mode{},
 	_global_pos{},
+	_global_vel_sp{},
 	_gps_pos{},
 	_sensor_combined{},
 	_home_pos{},
@@ -210,6 +212,12 @@ void
 Navigator::global_position_update()
 {
 	orb_copy(ORB_ID(vehicle_global_position), _global_pos_sub, &_global_pos);
+}
+
+void
+Navigator::global_velocity_sp_update()
+{
+	orb_copy(ORB_ID(vehicle_global_velocity_setpoint), _global_vel_sp_sub, &_global_vel_sp);
 }
 
 void
@@ -301,6 +309,7 @@ Navigator::task_main()
 
 	/* do subscriptions */
 	_global_pos_sub = orb_subscribe(ORB_ID(vehicle_global_position));
+	_global_vel_sp_sub = orb_subscribe(ORB_ID(vehicle_global_velocity_setpoint));
 	_gps_pos_sub = orb_subscribe(ORB_ID(vehicle_gps_position));
 	_sensor_combined_sub = orb_subscribe(ORB_ID(sensor_combined));
 	_fw_pos_ctrl_status_sub = orb_subscribe(ORB_ID(fw_pos_ctrl_status));
@@ -366,6 +375,12 @@ Navigator::task_main()
 		perf_begin(_loop_perf);
 
 		bool updated;
+
+		/* vel sp updated */
+		orb_check(_global_vel_sp_sub, &updated);
+		if (updated){
+			global_velocity_sp_update();
+		}
 
 		/* gps updated */
 		orb_check(_gps_pos_sub, &updated);
