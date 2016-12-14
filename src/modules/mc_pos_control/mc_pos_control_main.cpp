@@ -317,6 +317,12 @@ private:
 	static float	scale_control(float ctl, float end, float dz, float dy);
 	static float    throttle_curve(float ctl, float ctr);
 
+	/*
+	 * update Bezier points: this is only done in mission mode when
+	 * the waypoints are normal position type and the goal is to pass
+	 * the current waypoint (in contrast to loiter waypoint)
+	 */
+	void		update_bezier(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp, const matrix::Vector3f &next_sp);
 	/**
 	 * Update reference for local position projection
 	 */
@@ -675,6 +681,85 @@ MulticopterPositionControl::parameters_update(bool force)
 	}
 
 	return OK;
+}
+void
+MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp, const matrix::Vector3f &next_sp ){
+
+
+
+	/* initalize bezier points */
+	matrix::Vector3f prev_pt;
+	matrix::Vector3f ctrl_pt;
+	matrix::Vector3f next_pt;
+
+
+	/* desired velocity before and after corner turn */
+	matrix::Vector3f vel0 = (curr_sp - prev_sp).normalized() * _params.vel_cruise(0);
+	matrix::Vector3f vel1 = (next_sp - curr_sp).normalized() * _params.vel_cruise(0);
+
+
+	/* compute bezier points  */
+	_bez.computeBezFromVel(curr_sp, vel0, vel1);
+
+	/* compute acceleration required for path */
+	float max_acc = 0.5f;
+	matrix::Vector3f acc_request;
+	_bez.getAcceleration(acc_request);
+
+	/* check if acceleration is satisfied */
+	if(acc_request.length() > max_acc ){
+
+		/* compute time required for turn with required acceleration */
+		float time = (vel1 - vel0).length() / max_acc;
+		PX4_INFO("time: %.6f",(double)time);
+
+		/* update bezier points with new time */
+		_bez.computeBezFromVel(curr_sp, vel0, vel1, time);
+
+		_bez.getAcceleration(acc_request);
+		PX4_INFO("acceleeratin after time: %.6f", (double)acc_request.length());
+	}
+
+	/* check if bezier points are not too far away from curr_sp relative to the distance
+	 *  to pervious and next point */
+	matrix::Vector3f dist_0 = (curr_sp - _bez.getPt0());
+	matrix::Vector3f dist_1 = (_bez.getPt1() - curr_sp);
+	matrix::Vector3f dist_0_tot = (curr_sp - prev_sp);
+	matrix::Vector3f dist_1_tot = (next_sp - curr_sp);
+	bool pt0_too_far = (dist_0.length() > dist_0_tot.length()/2.0f);
+	bool pt1_too_far = (dist_1.length() > dist_1_tot.length()/2.0f);
+
+	/* bezier points are more than half distance from curr_sp to prev_sp/next_sp */
+	if( pt0_too_far || pt1_too_far ){
+
+		if(pt0_too_far){
+			PX4_INFO("pt0 too far");
+			prev_pt = curr_sp - dist_0_tot.normalized() * dist_0_tot.length()/2.0f;
+			_bez.setBezier(prev_pt, curr_sp, _bez.getPt1(),20.0f);
+
+		}
+
+		if(pt1_too_far){
+			PX4_INFO("pt1 too far");
+			next_pt = curr_sp + dist_1_tot.normalized() * dist_1_tot.length()/2.0f;
+			_bez.setBezier(_bez.getPt0(), curr_sp, next_pt,20.0f);
+		}
+	}
+
+	PX4_INFO("pt0 x %.6f, x %.6f, z %.6f",(double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
+	PX4_INFO("ctrl x %.6f, x %.6f, z %.6f",(double)_bez.getCtrl()(0), (double)_bez.getCtrl()(1), (double)_bez.getCtrl()(2));
+	PX4_INFO("pt1 x %.6f, x %.6f, z %.6f",(double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
+	PX4_INFO("p x %.6f, x %.6f, z %.6f",(double)_pos(0), (double)_pos(1), (double)_pos(2));
+
+
+
+	/*compute lines to pass before any change in bezier mode can occur*/
+	//vec_to_pass0(0) += _bez.getPt0(0);
+	//vec
+	/* reset triplets since we just updated*/
+	_triplet_update = false;
+	_do_bez_corner = false;
+
 }
 
 void
@@ -1402,6 +1487,9 @@ void MulticopterPositionControl::control_auto(float dt)
 	matrix::Vector3f curr_sp;
 	matrix::Vector3f next_sp;
 
+	matrix::Vector2f vec_to_pass0;
+	matrix::Vector2f vec_to_pass1;
+
 
 	if (_pos_sp_triplet.current.valid) {
 
@@ -1433,6 +1521,13 @@ void MulticopterPositionControl::control_auto(float dt)
 		    PX4_ISFINITE(prev_sp(1)) &&
 		    PX4_ISFINITE(prev_sp(2))) {
 			previous_setpoint_valid = true;
+
+			if(_triplet_update){
+				matrix::Vector3f dummy = (curr_sp-prev_sp);
+				vec_to_pass0(0) = dummy(1);
+				vec_to_pass0(1) = -dummy(0);
+				vec_to_pass0.normalized();
+			}
 		}
 	}else{
 
@@ -1448,6 +1543,13 @@ void MulticopterPositionControl::control_auto(float dt)
 				    PX4_ISFINITE(next_sp(1)) &&
 				    PX4_ISFINITE(next_sp(2))) {
 					next_setpoint_valid = true;
+
+					if(_triplet_update){
+						matrix::Vector3f dummy = (next_sp-curr_sp);
+						vec_to_pass1(0) = dummy(1);
+						vec_to_pass1(1) = -dummy(0);
+						vec_to_pass1.normalized();
+					}
 		}
 	}
 
@@ -1625,10 +1727,9 @@ void MulticopterPositionControl::control_auto(float dt)
 	//		}
 	//	}
     //
-		// use specialized controller for way point passing
+		// use specialized controller for waypoint passing
 		// acceleration feed forward not implemented yet
 		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION  ){
-
 
 			/* for now we do not use acceleration, so just initializi here */
 			matrix::Vector3f acc_request;
@@ -1637,89 +1738,40 @@ void MulticopterPositionControl::control_auto(float dt)
 			if( previous_setpoint_valid && next_setpoint_valid){
 
 
-				/* we only need to compute new bezier points if triplet changed and we are close to next point */
-				if( _triplet_update && (_bez.getPt1() - _pos).length() > 2.0f){
-
-					/* initalize bezier points */
-					matrix::Vector3f prev_pt;
-					matrix::Vector3f ctrl_pt;
-					matrix::Vector3f next_pt;
-
-
-					/* desired velocity before and after corner turn */
-					matrix::Vector3f vel0 = (curr_sp - prev_sp).normalized() * _params.vel_cruise(0);
-					matrix::Vector3f vel1 = (next_sp - curr_sp).normalized() * _params.vel_cruise(0);
-
-
-					/* compute bezier points  */
-					_bez.computeBezFromVel(curr_sp, vel0, vel1);
-
-					/* compute acceleration required for path */
-					float max_acc = 0.5f;
-					_bez.getAcceleration(acc_request);
-
-					/* check if acceleration is satisfied */
-					if(acc_request.length() > max_acc ){
-
-						/* compute time required for turn with required acceleration */
-						float time = (vel1 - vel0).length() / max_acc;
-						PX4_INFO("time: %.6f",(double)time);
-
-						/* update bezier points with new time */
-						_bez.computeBezFromVel(curr_sp, vel0, vel1, time);
-
-						_bez.getAcceleration(acc_request);
-						PX4_INFO("acceleeratin after time: %.6f", (double)acc_request.length());
-					}
-
-					/* check if bezier points are not too far away from curr_sp relative to the distance
-					 *  to pervious and next point */
-					matrix::Vector3f dist_0 = (curr_sp - _bez.getPt0());
-					matrix::Vector3f dist_1 = (_bez.getPt1() - curr_sp);
-					matrix::Vector3f dist_0_tot = (curr_sp - prev_sp);
-					matrix::Vector3f dist_1_tot = (next_sp - curr_sp);
-					bool pt0_too_far = (dist_0.length() > dist_0_tot.length()/2.0f);
-					bool pt1_too_far = (dist_1.length() > dist_1_tot.length()/2.0f);
-
-					/* bezier points are more than half distance from curr_sp to prev_sp/next_sp */
-					if( pt0_too_far || pt1_too_far ){
-
-						if(pt0_too_far){
-							PX4_INFO("pt0 too far");
-							prev_pt = curr_sp - dist_0_tot.normalized() * dist_0_tot.length()/2.0f;
-							_bez.setBezier(prev_pt, curr_sp, _bez.getPt1());
-
-						}
-
-						if(pt1_too_far){
-							PX4_INFO("pt1 too far");
-							next_pt = curr_sp + dist_1_tot.normalized() * dist_1_tot.length()/2.0f;
-							_bez.setBezier(_bez.getPt0(), curr_sp, next_pt);
-						}
-					}
-
-
-					/* reset triplets since we just updated*/
-					_triplet_update = false;
+				/* the first time we need to update bezier points */
+				if( _triplet_update && (_bez.getPt1() - _pos).length() < 2.0f){
+					PX4_INFO("update since close to next_pt");
+					update_bezier(prev_sp, curr_sp, next_sp);
 				}
+				/* if we changed waypoints during flight (considers changed up to 10m close)
+				 *  and during first iteration */
+				if( _triplet_update && (_bez.getPt0() - _pos).length() > 2.0f && !_do_bez_corner){
+					PX4_INFO("update first time ");
+					update_bezier(prev_sp, curr_sp, next_sp);
+				}
+
+				//PX4_INFO("pt0 x %.6f, x %.6f, z %.6f",(double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
+				//PX4_INFO("pt1 x %.6f, x %.6f, z %.6f",(double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
+				//PX4_INFO("p x %.6f, x %.6f, z %.6f",(double)_pos(0), (double)_pos(1), (double)_pos(2));
 
 
 				/* if close to corner, do bezier */
-				if( (_pos - _bez.getPt0() ).length() < 5.0f){
+				if( (_pos - _bez.getPt0() ).length() < 3.0f){
 					_do_bez_corner  = true;
 				}
 
-				if((_pos - _bez.getPt1()).length() < 5.0f){
+				if((_pos - _bez.getPt1()).length() < 3.0f){
 					_do_bez_corner = false;
 				}
-
 
 				/* apply corner or straight line case */
 				if(_do_bez_corner){
 					//PX4_INFO("do corner");
+					//PX4_INFO("do corner");
 					_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 				}else{
+					//PX4_INFO("do straight");
 					//PX4_INFO("do straight");
 					bezier::BezierQuad bezLine(prev_sp, _bez.getPt0(), _bez.getPt0());
 					bezLine.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
@@ -1736,7 +1788,7 @@ void MulticopterPositionControl::control_auto(float dt)
 				PX4_INFO("only current valid \n");
 
 				/* just go to that point */
-				_bez.setBezier(prev_sp, curr_sp, curr_sp);
+				_bez.setBezier(prev_sp, prev_sp, curr_sp);
 				_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 
