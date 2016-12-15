@@ -99,6 +99,11 @@ public:
 	 */
 	void setBezier(const matrix::Vector3f &pt0, const matrix::Vector3f &ctrl, const matrix::Vector3f &pt1, float duration = 1.0f );
 
+	/*
+	 * set duration
+	 */
+	void setDuraiont(const float time){_duration = time;}
+
 	/**
 	 * get point on bezier point corresponding to t
 	 */
@@ -132,8 +137,12 @@ public:
 	/*
 	 * compute bezier from velocity at bezier end points and ctrl point
 	 */
-	void computeBezFromVel(const matrix::Vector3f &ctrl, const matrix::Vector3f &vel0, const matrix::Vector3f &vel1, const float duration = 1.0f);
+	void setBezFromVel(const matrix::Vector3f &ctrl, const matrix::Vector3f &vel0, const matrix::Vector3f &vel1, const float duration = 1.0f);
 
+	/*
+	 * simpsons inegrattion applied to velocity
+	 */
+	float getArcLength(const float resolution);
 
 private:
 
@@ -150,6 +159,9 @@ private:
 
 	/* golden section search */
 	float goldenSectionSearch(const matrix::Vector3f &pose);
+
+
+
 
 
 };

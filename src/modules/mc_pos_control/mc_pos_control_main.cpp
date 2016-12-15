@@ -698,8 +698,8 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 	matrix::Vector3f vel1 = (next_sp - curr_sp).normalized() * _params.vel_cruise(0);
 
 
-	/* compute bezier points  */
-	_bez.computeBezFromVel(curr_sp, vel0, vel1);
+	/* set bezier points  */
+	_bez.setBezFromVel(curr_sp, vel0, vel1);
 
 	/* compute acceleration required for path */
 	float max_acc = 0.5f;
@@ -714,7 +714,7 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 		PX4_INFO("time: %.6f",(double)time);
 
 		/* update bezier points with new time */
-		_bez.computeBezFromVel(curr_sp, vel0, vel1, time);
+		_bez.setBezFromVel(curr_sp, vel0, vel1, time);
 
 		_bez.getAcceleration(acc_request);
 		PX4_INFO("acceleeratin after time: %.6f", (double)acc_request.length());
@@ -735,30 +735,36 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 		if(pt0_too_far){
 			PX4_INFO("pt0 too far");
 			prev_pt = curr_sp - dist_0_tot.normalized() * dist_0_tot.length()/2.0f;
-			_bez.setBezier(prev_pt, curr_sp, _bez.getPt1(),20.0f);
+			_bez.setBezier(prev_pt, curr_sp, _bez.getPt1());
 
 		}
 
 		if(pt1_too_far){
 			PX4_INFO("pt1 too far");
 			next_pt = curr_sp + dist_1_tot.normalized() * dist_1_tot.length()/2.0f;
-			_bez.setBezier(_bez.getPt0(), curr_sp, next_pt,20.0f);
+			_bez.setBezier(_bez.getPt0(), curr_sp, next_pt);
 		}
+
+		// get length of arc with resolution set to 0.005 time resolution
+		float length = _bez.getArcLength(0.005f);
+		float time = length/_params.vel_cruise(0);
+
+		// rest bezier such that velocity is not too high
+		_bez.setDuraiont(time);
+
 	}
 
-	PX4_INFO("pt0 x %.6f, x %.6f, z %.6f",(double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
-	PX4_INFO("ctrl x %.6f, x %.6f, z %.6f",(double)_bez.getCtrl()(0), (double)_bez.getCtrl()(1), (double)_bez.getCtrl()(2));
-	PX4_INFO("pt1 x %.6f, x %.6f, z %.6f",(double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
-	PX4_INFO("p x %.6f, x %.6f, z %.6f",(double)_pos(0), (double)_pos(1), (double)_pos(2));
+	//PX4_INFO("pt0 x %.6f, x %.6f, z %.6f",(double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
+	//PX4_INFO("ctrl x %.6f, x %.6f, z %.6f",(double)_bez.getCtrl()(0), (double)_bez.getCtrl()(1), (double)_bez.getCtrl()(2));
+	//PX4_INFO("pt1 x %.6f, x %.6f, z %.6f",(double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
+	//PX4_INFO("p x %.6f, x %.6f, z %.6f",(double)_pos(0), (double)_pos(1), (double)_pos(2));
 
 
 
 	/*compute lines to pass before any change in bezier mode can occur*/
 	//vec_to_pass0(0) += _bez.getPt0(0);
 	//vec
-	/* reset triplets since we just updated*/
-	_triplet_update = false;
-	_do_bez_corner = false;
+
 
 }
 
@@ -1550,6 +1556,8 @@ void MulticopterPositionControl::control_auto(float dt)
 						vec_to_pass1(1) = -dummy(0);
 						vec_to_pass1.normalized();
 					}
+
+					//PX4_INFO("next x: %.6f, y: %.6f, z: %.6f",(double)next_sp(0), (double)next_sp(1), (double)next_sp(2));
 		}
 	}
 
@@ -1557,7 +1565,6 @@ void MulticopterPositionControl::control_auto(float dt)
 
 	if (current_setpoint_valid &&
 	    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
-
 
 		// get cruising speed
 		matrix::Vector3f cruising_speed = _params.vel_cruise;
@@ -1639,6 +1646,21 @@ void MulticopterPositionControl::control_auto(float dt)
 
 
 		}
+
+
+		/* move setpoint not faster than max allowed speed */
+		matrix::Vector3f pos_sp_old_s = _pos_sp.emult(scale);
+
+		/* difference between current and desired position setpoints, 1 = max speed */
+		matrix::Vector3f d_pos_m = (pos_sp_s - pos_sp_old_s).edivide(_params.pos_p);
+		float d_pos_m_len = d_pos_m.length();
+
+		if (d_pos_m_len > dt) {
+			pos_sp_s = pos_sp_old_s + (d_pos_m / d_pos_m_len * dt).emult(_params.pos_p);
+		}
+
+		/* scale result back to normal space */
+		_pos_sp = pos_sp_s.edivide(scale);
 
 	//if (current_setpoint_valid &&
 	//    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
@@ -1729,30 +1751,45 @@ void MulticopterPositionControl::control_auto(float dt)
     //
 		// use specialized controller for waypoint passing
 		// acceleration feed forward not implemented yet
-		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION  ){
+		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION || _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER ){
 
-			/* for now we do not use acceleration, so just initializi here */
+			/* acceleration request is just needed to make sure that path does not ask for too much acceleration */
 			matrix::Vector3f acc_request;
 
-			/* we have three points */
-			if( previous_setpoint_valid && next_setpoint_valid){
+			/* we dont have a next setpoint or currenst setpoint is loiter: we dont want to smooth */
+			if( !next_setpoint_valid && ( _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER ) ){
 
+				/* just go to that point */
+				_bez.setBezier(_pos, _pos, curr_sp);
 
-				/* the first time we need to update bezier points */
+				/* ajust time according to velocity max*/
+				float dummy =  (curr_sp - _pos).length(); //distance
+				dummy = cruising_speed(0)/dummy; //time
+				_bez.setDuraiont(dummy);
+				_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
+
+				/* since we go to paint, we are not doing corner */
+				_do_bez_corner = false;
+
+			/* we have three points, no loiter: smmoothed corner can be computed*/
+			}else if( previous_setpoint_valid && next_setpoint_valid){
+
+				/* if triplets have been updated and we are close to pt1, dp an update */
 				if( _triplet_update && (_bez.getPt1() - _pos).length() < 2.0f){
-					PX4_INFO("update since close to next_pt");
 					update_bezier(prev_sp, curr_sp, next_sp);
-				}
-				/* if we changed waypoints during flight (considers changed up to 10m close)
-				 *  and during first iteration */
-				if( _triplet_update && (_bez.getPt0() - _pos).length() > 2.0f && !_do_bez_corner){
-					PX4_INFO("update first time ");
-					update_bezier(prev_sp, curr_sp, next_sp);
-				}
 
-				//PX4_INFO("pt0 x %.6f, x %.6f, z %.6f",(double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
-				//PX4_INFO("pt1 x %.6f, x %.6f, z %.6f",(double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
-				//PX4_INFO("p x %.6f, x %.6f, z %.6f",(double)_pos(0), (double)_pos(1), (double)_pos(2));
+					/* since close to pt1, we enter again straight line*/
+					_triplet_update = false;
+					_do_bez_corner = false;
+				}
+				/* if we changed waypoints during flight (considers changed up to 2m close)
+				 *  and during first iteration */
+				else if( _triplet_update && (_bez.getPt0() - _pos).length() > 2.0f && !_do_bez_corner){
+					update_bezier(prev_sp, curr_sp, next_sp);
+
+					/* reset triplet update flag since we just updated*/
+					_triplet_update = false;
+				}
 
 
 				/* if close to corner, do bezier */
@@ -1766,55 +1803,22 @@ void MulticopterPositionControl::control_auto(float dt)
 
 				/* apply corner or straight line case */
 				if(_do_bez_corner){
-					//PX4_INFO("do corner");
-					//PX4_INFO("do corner");
 					_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 				}else{
-					//PX4_INFO("do straight");
-					//PX4_INFO("do straight");
 					bezier::BezierQuad bezLine(prev_sp, _bez.getPt0(), _bez.getPt0());
 					bezLine.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 				}
-
-				//PX4_INFO("velmag: %.6f",(double)_vel_ff.length());
-				//X4_INFO("accmag: %.6f \n\n",(double)acc_request.length());
-
-
-			/* we only have a current setpoint: just go to that point*/
-			}else if( !next_setpoint_valid){
-
-				PX4_INFO("only current valid \n");
-
-				/* just go to that point */
-				_bez.setBezier(prev_sp, prev_sp, curr_sp);
-				_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
-
-
 			}
+
 			/* alsways saturate velocity feed forward */
-			_vel_ff = _vel_ff.normalized() * _params.vel_cruise(0); //currently acceleration not implemented: hence just jo with full speed
+			_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
 
 		}
 
-
-		/* move setpoint not faster than max allowed speed */
-		matrix::Vector3f pos_sp_old_s = _pos_sp.emult(scale);
-
-		/* difference between current and desired position setpoints, 1 = max speed */
-		matrix::Vector3f d_pos_m = (pos_sp_s - pos_sp_old_s).edivide(_params.pos_p);
-		float d_pos_m_len = d_pos_m.length();
-
-		if (d_pos_m_len > dt) {
-			pos_sp_s = pos_sp_old_s + (d_pos_m / d_pos_m_len * dt).emult(_params.pos_p);
-		}
-
-		/* scale result back to normal space */
-		_pos_sp = pos_sp_s.edivide(scale);
 
 		/* update yaw setpoint if needed */
-
 		if (_pos_sp_triplet.current.yawspeed_valid
 		    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET) {
 			_att_sp.yaw_body = _att_sp.yaw_body + _pos_sp_triplet.current.yawspeed * dt;
@@ -1945,6 +1949,7 @@ MulticopterPositionControl::control_position(float dt)
 	}
 
 	if (_run_alt_control) {
+
 		_vel_sp(2) = (_pos_sp(2) - _pos(2)) * _params.pos_p(2) + _vel_ff(2);
 	}
 

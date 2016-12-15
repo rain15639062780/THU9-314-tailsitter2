@@ -109,7 +109,7 @@ BezierQuad::getStatesClosest(matrix::Vector3f &point,matrix::Vector3f &vel,matri
 }
 
 void
-BezierQuad::computeBezFromVel(const matrix::Vector3f &ctrl, const matrix::Vector3f &vel0, const matrix::Vector3f &vel1, const float duration){
+BezierQuad::setBezFromVel(const matrix::Vector3f &ctrl, const matrix::Vector3f &vel0, const matrix::Vector3f &vel1, const float duration){
 
 	/* update bezier points */
 	_ctrl = ctrl;
@@ -139,6 +139,45 @@ BezierQuad::goldenSectionSearch(const matrix::Vector3f &pose){
 
 	}
 	return (b+a)/2.0f;
+}
+
+float
+BezierQuad::getArcLength(const float resolution){
+
+	// get number of elements
+	int n = (int)(roundf(_duration/resolution));
+	matrix::Vector3f v0, vn;
+	float y0, yn;
+
+	// check if n is even
+	if(n%2==1){
+		n += 1;
+	}
+
+	// step size
+	float h = (_duration)/n;
+	// get integration
+	float area = 0.0f;
+	matrix::Vector3f y;
+
+	for (int i=1; i<n; i++){
+
+		getVelocity(y, h*i);
+		if(i%2==1){
+			area += 4.0f * y.length();
+		}else{
+			area += 2.0f * y.length();
+		}
+
+	}
+	getVelocity(v0, 0.0f);
+	getVelocity(vn, _duration);
+	y0 = v0.length();
+	yn = vn.length();
+
+	// 1/3 simpsons rule
+	area = h/3.0f * (y0 + yn + area);
+	return area;
 }
 
 }
