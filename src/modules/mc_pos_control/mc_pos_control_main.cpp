@@ -754,10 +754,10 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 
 	}
 
-	//PX4_INFO("pt0 x %.6f, x %.6f, z %.6f",(double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
-	//PX4_INFO("ctrl x %.6f, x %.6f, z %.6f",(double)_bez.getCtrl()(0), (double)_bez.getCtrl()(1), (double)_bez.getCtrl()(2));
-	//PX4_INFO("pt1 x %.6f, x %.6f, z %.6f",(double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
-	//PX4_INFO("p x %.6f, x %.6f, z %.6f",(double)_pos(0), (double)_pos(1), (double)_pos(2));
+	PX4_INFO("pt0 x %.6f, x %.6f, z %.6f",(double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
+	PX4_INFO("ctrl x %.6f, x %.6f, z %.6f",(double)_bez.getCtrl()(0), (double)_bez.getCtrl()(1), (double)_bez.getCtrl()(2));
+	PX4_INFO("pt1 x %.6f, x %.6f, z %.6f",(double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
+	PX4_INFO("p x %.6f, x %.6f, z %.6f",(double)_pos(0), (double)_pos(1), (double)_pos(2));
 
 
 
@@ -1757,19 +1757,27 @@ void MulticopterPositionControl::control_auto(float dt)
 			matrix::Vector3f acc_request;
 
 			/* we dont have a next setpoint or currenst setpoint is loiter: we dont want to smooth */
-			if( !next_setpoint_valid && ( _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER ) ){
+			if( !next_setpoint_valid || ( _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER ) ){
 
 				/* just go to that point */
-				_bez.setBezier(_pos, _pos, curr_sp);
+				_bez.setBezier(prev_sp, curr_sp, curr_sp);
 
 				/* ajust time according to velocity max*/
-				float dummy =  (curr_sp - _pos).length(); //distance
-				dummy = cruising_speed(0)/dummy; //time
+				float dummy =  (curr_sp - prev_sp).length(); //distance
+				dummy = dummy/cruising_speed(0); //time
 				_bez.setDuraiont(dummy);
 				_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
-				/* since we go to paint, we are not doing corner */
+
+
+				//matrix::Vector3f ddd;
+				//_bez.getAcceleration(ddd);
+				//PX4_INFO("accerlation x: %.6f, y: %.6f, z: %.6f", (double)ddd(0), (double)ddd(1), (double)ddd(2));
+				//PX4_INFO("vel ff x: %.6f, y %.6f, z %.6f", (double)_vel_ff(0), (double)_vel_ff(1), (double)_vel_ff(2));
+
+				/* we are going stright to waypoint */
 				_do_bez_corner = false;
+
 
 			/* we have three points, no loiter: smmoothed corner can be computed*/
 			}else if( previous_setpoint_valid && next_setpoint_valid){
@@ -1777,7 +1785,7 @@ void MulticopterPositionControl::control_auto(float dt)
 				/* if triplets have been updated and we are close to pt1, dp an update */
 				if( _triplet_update && (_bez.getPt1() - _pos).length() < 2.0f){
 					update_bezier(prev_sp, curr_sp, next_sp);
-
+					PX4_INFO("defulat update");
 					/* since close to pt1, we enter again straight line*/
 					_triplet_update = false;
 					_do_bez_corner = false;
@@ -1786,9 +1794,10 @@ void MulticopterPositionControl::control_auto(float dt)
 				 *  and during first iteration */
 				else if( _triplet_update && (_bez.getPt0() - _pos).length() > 2.0f && !_do_bez_corner){
 					update_bezier(prev_sp, curr_sp, next_sp);
-
+					PX4_INFO("do update up to 2m");
 					/* reset triplet update flag since we just updated*/
 					_triplet_update = false;
+
 				}
 
 
@@ -1803,17 +1812,30 @@ void MulticopterPositionControl::control_auto(float dt)
 
 				/* apply corner or straight line case */
 				if(_do_bez_corner){
+					//PX4_INFO("do corner");
 					_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 				}else{
-					bezier::BezierQuad bezLine(prev_sp, _bez.getPt0(), _bez.getPt0());
+
+					bezier::BezierQuad bezLine(prev_sp, curr_sp, curr_sp);
+
+					/* ajust time according to velocity max*/
+					//float dummy =  (curr_sp - prev_sp).length(); //distance
+					//dummy = dummy/cruising_speed(0); //time
+					//bezLine.setDuraiont(dummy);
 					bezLine.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
+
+					/* if straigth, just try to go with full speed */
+					_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
+
+
 
 				}
 			}
 
 			/* alsways saturate velocity feed forward */
-			_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
+			//_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
+			//PX4_INFO("vel ff x: %.6f, y %.6f, z %.6f", (double)_vel_ff(0), (double)_vel_ff(1), (double)_vel_ff(2));
 
 		}
 
