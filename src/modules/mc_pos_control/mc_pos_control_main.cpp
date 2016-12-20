@@ -746,11 +746,19 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 		}
 
 		// get length of arc with resolution set to 0.005 time resolution
-		float length = _bez.getArcLength(0.005f);
-		float time = length/_params.vel_cruise(0);
+		//float length = _bez.getArcLength(0.005f);
+
+		// adjust time such that acceleration is not too high assuming that
+		// start and end veloicyt are max
+		float time = sqrtf( (_bez.getPt0() - _bez.getCtrl() * 2.0f + _bez.getPt1()).length() * 2.0f / max_acc);
+		//acc = (_pt0 - _ctrl * 2.0f + _pt1) * 2.0f/(_duration * _duration);
+		//float time = length/_params.vel_cruise(0);
 
 		// rest bezier such that velocity is not too high
-		_bez.setDuraiont(time);
+		_bez.setDuration(time);
+		PX4_INFO("time: %.6f",(double)time);
+
+
 
 	}
 
@@ -1765,7 +1773,7 @@ void MulticopterPositionControl::control_auto(float dt)
 				/* ajust time according to velocity max*/
 				float dummy =  (curr_sp - prev_sp).length(); //distance
 				dummy = dummy/cruising_speed(0); //time
-				_bez.setDuraiont(dummy);
+				_bez.setDuration(dummy);
 				_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 
@@ -1834,7 +1842,7 @@ void MulticopterPositionControl::control_auto(float dt)
 			}
 
 			/* alsways saturate velocity feed forward */
-			//_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
+			_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
 			//PX4_INFO("vel ff x: %.6f, y %.6f, z %.6f", (double)_vel_ff(0), (double)_vel_ff(1), (double)_vel_ff(2));
 
 		}
