@@ -683,7 +683,9 @@ MulticopterPositionControl::parameters_update(bool force)
 	return OK;
 }
 void
-MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp, const matrix::Vector3f &next_sp ){
+MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp,
+		const matrix::Vector3f &next_sp)
+{
 
 
 
@@ -707,11 +709,11 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 	_bez.getAcceleration(acc_request);
 
 	/* check if acceleration is satisfied */
-	if(acc_request.length() > max_acc ){
+	if (acc_request.length() > max_acc) {
 
 		/* compute time required for turn with required acceleration */
 		float time = (vel1 - vel0).length() / max_acc;
-		PX4_INFO("time: %.6f",(double)time);
+		PX4_INFO("time: %.6f", (double)time);
 
 		/* update bezier points with new time */
 		_bez.setBezFromVel(curr_sp, vel0, vel1, time);
@@ -726,22 +728,22 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 	matrix::Vector3f dist_1 = (_bez.getPt1() - curr_sp);
 	matrix::Vector3f dist_0_tot = (curr_sp - prev_sp);
 	matrix::Vector3f dist_1_tot = (next_sp - curr_sp);
-	bool pt0_too_far = (dist_0.length() > dist_0_tot.length()/2.0f);
-	bool pt1_too_far = (dist_1.length() > dist_1_tot.length()/2.0f);
+	bool pt0_too_far = (dist_0.length() > dist_0_tot.length() / 2.0f);
+	bool pt1_too_far = (dist_1.length() > dist_1_tot.length() / 2.0f);
 
 	/* bezier points are more than half distance from curr_sp to prev_sp/next_sp */
-	if( pt0_too_far || pt1_too_far ){
+	if (pt0_too_far || pt1_too_far) {
 
-		if(pt0_too_far){
+		if (pt0_too_far) {
 			PX4_INFO("pt0 too far");
-			prev_pt = curr_sp - dist_0_tot.normalized() * dist_0_tot.length()/2.0f;
+			prev_pt = curr_sp - dist_0_tot.normalized() * dist_0_tot.length() / 2.0f;
 			_bez.setBezier(prev_pt, curr_sp, _bez.getPt1());
 
 		}
 
-		if(pt1_too_far){
+		if (pt1_too_far) {
 			PX4_INFO("pt1 too far");
-			next_pt = curr_sp + dist_1_tot.normalized() * dist_1_tot.length()/2.0f;
+			next_pt = curr_sp + dist_1_tot.normalized() * dist_1_tot.length() / 2.0f;
 			_bez.setBezier(_bez.getPt0(), curr_sp, next_pt);
 		}
 
@@ -750,22 +752,23 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 
 		// adjust time such that acceleration is not too high assuming that
 		// start and end veloicyt are max
-		float time = sqrtf( (_bez.getPt0() - _bez.getCtrl() * 2.0f + _bez.getPt1()).length() * 2.0f / max_acc);
+		float time = sqrtf((_bez.getPt0() - _bez.getCtrl() * 2.0f + _bez.getPt1()).length() * 2.0f / max_acc);
 		//acc = (_pt0 - _ctrl * 2.0f + _pt1) * 2.0f/(_duration * _duration);
 		//float time = length/_params.vel_cruise(0);
 
 		// rest bezier such that velocity is not too high
 		_bez.setDuration(time);
-		PX4_INFO("time: %.6f",(double)time);
+		PX4_INFO("time: %.6f", (double)time);
 
 
 
 	}
 
-	PX4_INFO("pt0 x %.6f, x %.6f, z %.6f",(double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
-	PX4_INFO("ctrl x %.6f, x %.6f, z %.6f",(double)_bez.getCtrl()(0), (double)_bez.getCtrl()(1), (double)_bez.getCtrl()(2));
-	PX4_INFO("pt1 x %.6f, x %.6f, z %.6f",(double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
-	PX4_INFO("p x %.6f, x %.6f, z %.6f",(double)_pos(0), (double)_pos(1), (double)_pos(2));
+	PX4_INFO("pt0 x %.6f, x %.6f, z %.6f", (double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
+	PX4_INFO("ctrl x %.6f, x %.6f, z %.6f", (double)_bez.getCtrl()(0), (double)_bez.getCtrl()(1),
+		 (double)_bez.getCtrl()(2));
+	PX4_INFO("pt1 x %.6f, x %.6f, z %.6f", (double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
+	PX4_INFO("p x %.6f, x %.6f, z %.6f", (double)_pos(0), (double)_pos(1), (double)_pos(2));
 
 
 
@@ -1520,7 +1523,7 @@ void MulticopterPositionControl::control_auto(float dt)
 		}
 
 		/* check if new triplets are available */
-		if((curr_sp - _bez.getCtrl()).length() > SIGMA){
+		if ((curr_sp - _bez.getCtrl()).length() > SIGMA) {
 			_triplet_update = true;
 		}
 	}
@@ -1536,36 +1539,38 @@ void MulticopterPositionControl::control_auto(float dt)
 		    PX4_ISFINITE(prev_sp(2))) {
 			previous_setpoint_valid = true;
 
-			if(_triplet_update){
-				matrix::Vector3f dummy = (curr_sp-prev_sp);
+			if (_triplet_update) {
+				matrix::Vector3f dummy = (curr_sp - prev_sp);
 				vec_to_pass0(0) = dummy(1);
 				vec_to_pass0(1) = -dummy(0);
 				vec_to_pass0.normalized();
 			}
 		}
-	}else{
+
+	} else {
 
 
 	}
 
 	if (_pos_sp_triplet.next.valid) {
-			map_projection_project(&_ref_pos,
-								 _pos_sp_triplet.next.lat, _pos_sp_triplet.next.lon,
-							&next_sp(0), &next_sp(1));
+		map_projection_project(&_ref_pos,
+				       _pos_sp_triplet.next.lat, _pos_sp_triplet.next.lon,
+				       &next_sp(0), &next_sp(1));
 		next_sp(2) = -(_pos_sp_triplet.next.alt - _ref_alt);
+
 		if (PX4_ISFINITE(next_sp(0)) &&
-				    PX4_ISFINITE(next_sp(1)) &&
-				    PX4_ISFINITE(next_sp(2))) {
-					next_setpoint_valid = true;
+		    PX4_ISFINITE(next_sp(1)) &&
+		    PX4_ISFINITE(next_sp(2))) {
+			next_setpoint_valid = true;
 
-					if(_triplet_update){
-						matrix::Vector3f dummy = (next_sp-curr_sp);
-						vec_to_pass1(0) = dummy(1);
-						vec_to_pass1(1) = -dummy(0);
-						vec_to_pass1.normalized();
-					}
+			if (_triplet_update) {
+				matrix::Vector3f dummy = (next_sp - curr_sp);
+				vec_to_pass1(0) = dummy(1);
+				vec_to_pass1(1) = -dummy(0);
+				vec_to_pass1.normalized();
+			}
 
-					//PX4_INFO("next x: %.6f, y: %.6f, z: %.6f",(double)next_sp(0), (double)next_sp(1), (double)next_sp(2));
+			//PX4_INFO("next x: %.6f, y: %.6f, z: %.6f",(double)next_sp(0), (double)next_sp(1), (double)next_sp(2));
 		}
 	}
 
@@ -1594,7 +1599,7 @@ void MulticopterPositionControl::control_auto(float dt)
 
 		// folow target
 		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET &&
-			    previous_setpoint_valid) {
+		    previous_setpoint_valid) {
 
 			if ((curr_sp - prev_sp).length() > MIN_DIST) {
 
@@ -1670,109 +1675,110 @@ void MulticopterPositionControl::control_auto(float dt)
 		/* scale result back to normal space */
 		_pos_sp = pos_sp_s.edivide(scale);
 
-	//if (current_setpoint_valid &&
-	//    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
-    //
-	//	/* scaled space: 1 == position error resulting max allowed speed */
-    //
-	//	matrix::Vector3f cruising_speed = _params.vel_cruise;
-    //
-	//	if (PX4_ISFINITE(_pos_sp_triplet.current.cruising_speed) &&
-	//	    _pos_sp_triplet.current.cruising_speed > 0.1f) {
-	//		cruising_speed(0) = _pos_sp_triplet.current.cruising_speed;
-	//		cruising_speed(1) = _pos_sp_triplet.current.cruising_speed;
-	//	}
-    //
-	//	matrix::Vector3f scale = _params.pos_p.edivide(cruising_speed);
-    //
-	//	/* convert current setpoint to scaled space */
-	//	matrix::Vector3f curr_sp_s = curr_sp.emult(scale);
-    //
-	//	/* by default use current setpoint as is */
-	//	matrix::Vector3f pos_sp_s = curr_sp_s;
-    //
-	//	if ((_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION  ||
-	//	     _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET) &&
-	//	    previous_setpoint_valid) {
-    //
-	//		/* follow "previous - current" line */
-    //
-	//		if ((curr_sp - prev_sp).length() > MIN_DIST) {
-    //
-	//			/* find X - cross point of unit sphere and trajectory */
-	//			matrix::Vector3f pos_s = _pos.emult(scale);
-	//			matrix::Vector3f prev_sp_s = prev_sp.emult(scale);
-	//			matrix::Vector3f prev_curr_s = curr_sp_s - prev_sp_s;
-	//			matrix::Vector3f curr_pos_s = pos_s - curr_sp_s;
-	//			float curr_pos_s_len = curr_pos_s.length();
-    //
-	//			if (curr_pos_s_len < 1.0f) {
-	//				/* copter is closer to waypoint than unit radius */
-	//				/* check next waypoint and use it to avoid slowing down when passing via waypoint */
-	//				if (_pos_sp_triplet.next.valid) {
-	//					matrix::Vector3f next_sp;
-	//					map_projection_project(&_ref_pos,
-	//							       _pos_sp_triplet.next.lat, _pos_sp_triplet.next.lon,
-	//							       &next_sp.data[0], &next_sp.data[1]);
-	//					next_sp(2) = -(_pos_sp_triplet.next.alt - _ref_alt);
-    //
-	//					if ((next_sp - curr_sp).length() > MIN_DIST) {
-	//						matrix::Vector3f next_sp_s = next_sp.emult(scale);
-    //
-	//						/* calculate angle prev - curr - next */
-	//						matrix::Vector3f curr_next_s = next_sp_s - curr_sp_s;
-	//						matrix::Vector3f prev_curr_s_norm = prev_curr_s.normalized();
-    //
-	//						/* cos(a) * curr_next, a = angle between current and next trajectory segments */
-	//						float cos_a_curr_next = prev_curr_s_norm * curr_next_s;
-    //
-	//						/* cos(b), b = angle pos - curr_sp - prev_sp */
-	//						float cos_b = -curr_pos_s * prev_curr_s_norm / curr_pos_s_len;
-    //
-	//						if (cos_a_curr_next > 0.0f && cos_b > 0.0f) {
-	//							float curr_next_s_len = curr_next_s.length();
-    //
-	//							/* if curr - next distance is larger than unit radius, limit it */
-	//							if (curr_next_s_len > 1.0f) {
-	//								cos_a_curr_next /= curr_next_s_len;
-	//							}
-    //
-	//							/* feed forward position setpoint offset */
-	//							matrix::Vector3f pos_ff = prev_curr_s_norm *
-	//										 cos_a_curr_next * cos_b * cos_b * (1.0f - curr_pos_s_len) *
-	//										 (1.0f - expf(-curr_pos_s_len * curr_pos_s_len * 20.0f));
-	//							pos_sp_s += pos_ff;
-	//						}
-	//					}
-	//				}
-    //
-	//			} else {
-	//				bool near = cross_sphere_line(pos_s, 1.0f, prev_sp_s, curr_sp_s, pos_sp_s);
-    //
-	//				if (!near) {
-	//					/* we're far away from trajectory, pos_sp_s is set to the nearest point on the trajectory */
-	//					pos_sp_s = pos_s + (pos_sp_s - pos_s).normalized();
-	//				}
-	//			}
-	//		}
-	//	}
-    //
+		//if (current_setpoint_valid &&
+		//    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
+		//
+		//	/* scaled space: 1 == position error resulting max allowed speed */
+		//
+		//	matrix::Vector3f cruising_speed = _params.vel_cruise;
+		//
+		//	if (PX4_ISFINITE(_pos_sp_triplet.current.cruising_speed) &&
+		//	    _pos_sp_triplet.current.cruising_speed > 0.1f) {
+		//		cruising_speed(0) = _pos_sp_triplet.current.cruising_speed;
+		//		cruising_speed(1) = _pos_sp_triplet.current.cruising_speed;
+		//	}
+		//
+		//	matrix::Vector3f scale = _params.pos_p.edivide(cruising_speed);
+		//
+		//	/* convert current setpoint to scaled space */
+		//	matrix::Vector3f curr_sp_s = curr_sp.emult(scale);
+		//
+		//	/* by default use current setpoint as is */
+		//	matrix::Vector3f pos_sp_s = curr_sp_s;
+		//
+		//	if ((_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION  ||
+		//	     _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET) &&
+		//	    previous_setpoint_valid) {
+		//
+		//		/* follow "previous - current" line */
+		//
+		//		if ((curr_sp - prev_sp).length() > MIN_DIST) {
+		//
+		//			/* find X - cross point of unit sphere and trajectory */
+		//			matrix::Vector3f pos_s = _pos.emult(scale);
+		//			matrix::Vector3f prev_sp_s = prev_sp.emult(scale);
+		//			matrix::Vector3f prev_curr_s = curr_sp_s - prev_sp_s;
+		//			matrix::Vector3f curr_pos_s = pos_s - curr_sp_s;
+		//			float curr_pos_s_len = curr_pos_s.length();
+		//
+		//			if (curr_pos_s_len < 1.0f) {
+		//				/* copter is closer to waypoint than unit radius */
+		//				/* check next waypoint and use it to avoid slowing down when passing via waypoint */
+		//				if (_pos_sp_triplet.next.valid) {
+		//					matrix::Vector3f next_sp;
+		//					map_projection_project(&_ref_pos,
+		//							       _pos_sp_triplet.next.lat, _pos_sp_triplet.next.lon,
+		//							       &next_sp.data[0], &next_sp.data[1]);
+		//					next_sp(2) = -(_pos_sp_triplet.next.alt - _ref_alt);
+		//
+		//					if ((next_sp - curr_sp).length() > MIN_DIST) {
+		//						matrix::Vector3f next_sp_s = next_sp.emult(scale);
+		//
+		//						/* calculate angle prev - curr - next */
+		//						matrix::Vector3f curr_next_s = next_sp_s - curr_sp_s;
+		//						matrix::Vector3f prev_curr_s_norm = prev_curr_s.normalized();
+		//
+		//						/* cos(a) * curr_next, a = angle between current and next trajectory segments */
+		//						float cos_a_curr_next = prev_curr_s_norm * curr_next_s;
+		//
+		//						/* cos(b), b = angle pos - curr_sp - prev_sp */
+		//						float cos_b = -curr_pos_s * prev_curr_s_norm / curr_pos_s_len;
+		//
+		//						if (cos_a_curr_next > 0.0f && cos_b > 0.0f) {
+		//							float curr_next_s_len = curr_next_s.length();
+		//
+		//							/* if curr - next distance is larger than unit radius, limit it */
+		//							if (curr_next_s_len > 1.0f) {
+		//								cos_a_curr_next /= curr_next_s_len;
+		//							}
+		//
+		//							/* feed forward position setpoint offset */
+		//							matrix::Vector3f pos_ff = prev_curr_s_norm *
+		//										 cos_a_curr_next * cos_b * cos_b * (1.0f - curr_pos_s_len) *
+		//										 (1.0f - expf(-curr_pos_s_len * curr_pos_s_len * 20.0f));
+		//							pos_sp_s += pos_ff;
+		//						}
+		//					}
+		//				}
+		//
+		//			} else {
+		//				bool near = cross_sphere_line(pos_s, 1.0f, prev_sp_s, curr_sp_s, pos_sp_s);
+		//
+		//				if (!near) {
+		//					/* we're far away from trajectory, pos_sp_s is set to the nearest point on the trajectory */
+		//					pos_sp_s = pos_s + (pos_sp_s - pos_s).normalized();
+		//				}
+		//			}
+		//		}
+		//	}
+		//
 		// use specialized controller for waypoint passing
 		// acceleration feed forward not implemented yet
-		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION || _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER ){
+		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION
+		    || _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
 
 			/* acceleration request is just needed to make sure that path does not ask for too much acceleration */
 			matrix::Vector3f acc_request;
 
 			/* we dont have a next setpoint or currenst setpoint is loiter: we dont want to smooth */
-			if( !next_setpoint_valid || ( _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER ) ){
+			if (!next_setpoint_valid || (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER)) {
 
 				/* just go to that point */
 				_bez.setBezier(prev_sp, curr_sp, curr_sp);
 
 				/* ajust time according to velocity max*/
-				float dummy =  (curr_sp - prev_sp).length(); //distance
-				dummy = dummy/cruising_speed(0); //time
+				float dummy = (curr_sp - prev_sp).length();  //distance
+				dummy = dummy / cruising_speed(0); //time
 				_bez.setDuration(dummy);
 				_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
@@ -1787,20 +1793,22 @@ void MulticopterPositionControl::control_auto(float dt)
 				_do_bez_corner = false;
 
 
-			/* we have three points, no loiter: smmoothed corner can be computed*/
-			}else if( previous_setpoint_valid && next_setpoint_valid){
+				/* we have three points, no loiter: smmoothed corner can be computed*/
+
+			} else if (previous_setpoint_valid && next_setpoint_valid) {
 
 				/* if triplets have been updated and we are close to pt1, dp an update */
-				if( _triplet_update && (_bez.getPt1() - _pos).length() < 2.0f){
+				if (_triplet_update && (_bez.getPt1() - _pos).length() < 2.0f) {
 					update_bezier(prev_sp, curr_sp, next_sp);
 					PX4_INFO("defulat update");
 					/* since close to pt1, we enter again straight line*/
 					_triplet_update = false;
 					_do_bez_corner = false;
 				}
+
 				/* if we changed waypoints during flight (considers changed up to 2m close)
 				 *  and during first iteration */
-				else if( _triplet_update && (_bez.getPt0() - _pos).length() > 2.0f && !_do_bez_corner){
+				else if (_triplet_update && (_bez.getPt0() - _pos).length() > 2.0f && !_do_bez_corner) {
 					update_bezier(prev_sp, curr_sp, next_sp);
 					PX4_INFO("do update up to 2m");
 					/* reset triplet update flag since we just updated*/
@@ -1810,20 +1818,20 @@ void MulticopterPositionControl::control_auto(float dt)
 
 
 				/* if close to corner, do bezier */
-				if( (_pos - _bez.getPt0() ).length() < 3.0f){
+				if ((_pos - _bez.getPt0()).length() < 3.0f) {
 					_do_bez_corner  = true;
 				}
 
-				if((_pos - _bez.getPt1()).length() < 3.0f){
+				if ((_pos - _bez.getPt1()).length() < 3.0f) {
 					_do_bez_corner = false;
 				}
 
 				/* apply corner or straight line case */
-				if(_do_bez_corner){
+				if (_do_bez_corner) {
 					//PX4_INFO("do corner");
 					_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
-				}else{
+				} else {
 
 					bezier::BezierQuad bezLine(prev_sp, curr_sp, curr_sp);
 
