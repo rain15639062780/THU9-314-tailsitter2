@@ -110,6 +110,11 @@ public:
 	void getPoint(matrix::Vector3f &point, const float t);
 
 	/*
+	 * Distance to closest point given a position
+	 */
+	float getDistToClosestPoint(const matrix::Vector3f &pose);
+
+	/*
 	 * get velocity on bezier corresponding to t
 	 */
 	void getVelocity(matrix::Vector3f &vel, const float t);
@@ -128,11 +133,6 @@ public:
 	 * get states on bezier which are closest to pose
 	 */
 	void getStatesClosest(matrix::Vector3f &point,matrix::Vector3f &vel,matrix::Vector3f &acc, const matrix::Vector3f pose);
-
-	/*
-	 * get distance to point on bezier
-	 */
-	float getDistanceSquared(const float t, const matrix::Vector3f &pose);
 
 	/*
 	 * compute bezier from velocity at bezier end points and ctrl point
@@ -158,8 +158,12 @@ private:
 	 */
 
 	/* golden section search */
-	float goldenSectionSearch(const matrix::Vector3f &pose);
+	float _goldenSectionSearch(const matrix::Vector3f &pose);
 
+	/*
+	* get distance to point on bezier
+	*/
+	float _getDistanceSquared(const float t, const matrix::Vector3f &pose);
 
 
 

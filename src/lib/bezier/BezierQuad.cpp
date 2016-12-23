@@ -84,24 +84,26 @@ BezierQuad::getStates(matrix::Vector3f &point, matrix::Vector3f &vel, matrix::Ve
 	getAcceleration(acc);
 }
 
+
+
 float
-BezierQuad::getDistanceSquared(const float t, const matrix::Vector3f &pose){
-	/* get point on bezier */
-	matrix::Vector3f vec;
-	getPoint(vec, t);
+BezierQuad::getDistToClosestPoint(const matrix::Vector3f &pose){
 
-	/* get vector from point to pose */
-	vec = vec - pose;
+	/* get t that corresponds to point closest on bezier point */
+	float t = _goldenSectionSearch(pose);
 
-	/* norm squared */
-	return (vec * vec);
+	/* get closest point */
+	matrix::Vector3f point;
+	getPoint(point, t);
+
+	return (pose - point).length();
 
 }
 
 void
 BezierQuad::getStatesClosest(matrix::Vector3f &point,matrix::Vector3f &vel,matrix::Vector3f &acc, const matrix::Vector3f pose){
 	/* get t that corresponds to point closest on bezier point */
-	float t = goldenSectionSearch(pose);
+	float t = _goldenSectionSearch(pose);
 
 	/* get states corresponding to t */
 	getStates(point, vel, acc, t);
@@ -118,28 +120,7 @@ BezierQuad::setBezFromVel(const matrix::Vector3f &ctrl, const matrix::Vector3f &
 	_pt1 = _ctrl + vel1 * _duration/2.0f;
 }
 
-float
-BezierQuad::goldenSectionSearch(const matrix::Vector3f &pose){
-	float a, b, c, d;
-	a = 0.0f; //represents most left point
-	b = _duration * 1.0f; //represents most right point
 
-	c = b - (b - a) / GOLDEN_RATIO;
-	d = a + (b - a) / GOLDEN_RATIO;
-
-	while(fabsf(c - d) > RESOLUTION){
-			if( getDistanceSquared(c, pose) < getDistanceSquared(d, pose)){
-				b = d;
-			}else{
-				a = c;
-			}
-
-			c = b - (b -a)/GOLDEN_RATIO;
-			d = a + (b -a)/GOLDEN_RATIO;
-
-	}
-	return (b+a)/2.0f;
-}
 
 float
 BezierQuad::getArcLength(const float resolution){
@@ -178,6 +159,43 @@ BezierQuad::getArcLength(const float resolution){
 	// 1/3 simpsons rule
 	area = h/3.0f * (y0 + yn + area);
 	return area;
+}
+
+float
+BezierQuad::_goldenSectionSearch(const matrix::Vector3f &pose){
+	float a, b, c, d;
+	a = 0.0f; //represents most left point
+	b = _duration * 1.0f; //represents most right point
+
+	c = b - (b - a) / GOLDEN_RATIO;
+	d = a + (b - a) / GOLDEN_RATIO;
+
+	while(fabsf(c - d) > RESOLUTION){
+			if( _getDistanceSquared(c, pose) < _getDistanceSquared(d, pose)){
+				b = d;
+			}else{
+				a = c;
+			}
+
+			c = b - (b -a)/GOLDEN_RATIO;
+			d = a + (b -a)/GOLDEN_RATIO;
+
+	}
+	return (b+a)/2.0f;
+}
+
+float
+BezierQuad::_getDistanceSquared(const float t, const matrix::Vector3f &pose){
+	/* get point on bezier */
+	matrix::Vector3f vec;
+	getPoint(vec, t);
+
+	/* get vector from point to pose */
+	vec = vec - pose;
+
+	/* norm squared */
+	return (vec * vec);
+
 }
 
 }
