@@ -168,7 +168,8 @@ private:
 	control::BlockDerivative _vel_y_deriv;
 	control::BlockDerivative _vel_z_deriv;
 
-	bezier::BezierQuad _bez;
+	bezier::BezierQuad _bez_1;   /**< specifies the first part of the trajectory: is always a straight line */
+	bezier::BezierQuad _bez_2;	 /**< specifies the second part of the trajectory: is smoothed corner or straight line with deceleration */
 
 	struct {
 		param_t thr_min;
@@ -266,7 +267,7 @@ private:
 	bool _hold_offboard_z = false;
 
 	bool _triplet_update = false; // changes when position triplet have updated (in position)
-	bool _do_bez_corner = false; // specifies if vehicle does a turner when in mission
+	bool _on_bez_2 = false; // specifies if vehicle does a turner when in mission
 
 	matrix::Vector3f _thrust_int;
 
@@ -278,6 +279,8 @@ private:
 	matrix::Vector3f _vel_ff;
 	matrix::Vector3f _vel_sp_prev;
 	matrix::Vector3f _vel_err_d;		/**< derivative of current velocity */
+
+	matrix::Vector3f _curr_sp_prev;  	/**< needed for mission to know when triplet are updated: this logic should not be in here but rather in the navigator */
 
 	matrix::Dcmf _R;			/**< rotation matrix from attitude quaternions */
 	float _yaw;				/**< yaw angle (euler) */
@@ -318,11 +321,19 @@ private:
 	static float    throttle_curve(float ctl, float ctr);
 
 	/*
-	 * update Bezier points: this is only done in mission mode when
+	 * update Bezier points for corner: this is only done in mission mode when
 	 * the waypoints are normal position type and the goal is to pass
 	 * the current waypoint (in contrast to loiter waypoint)
 	 */
-	void		update_bezier(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp, const matrix::Vector3f &next_sp);
+	void		update_bezier_corner(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp, const matrix::Vector3f &next_sp);
+
+	/*
+	 * update Bezier points along line: this is done only in mission mode when
+	 * waypoints are loiter or no next setpoint is available
+	 */
+	void 		update_bezier_line(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp);
+
+
 	/**
 	 * Update reference for local position projection
 	 */
@@ -440,7 +451,8 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_vel_x_deriv(this, "VELD"),
 	_vel_y_deriv(this, "VELD"),
 	_vel_z_deriv(this, "VELD"),
-	_bez(),
+	_bez_1(),
+	_bez_2(),
 	_ref_alt(0.0f),
 	_ref_timestamp(0),
 
@@ -488,6 +500,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_vel_ff.zero();
 	_vel_sp_prev.zero();
 	_vel_err_d.zero();
+	_curr_sp_prev.zero();
 
 	_R.identity();
 
@@ -683,7 +696,7 @@ MulticopterPositionControl::parameters_update(bool force)
 	return OK;
 }
 void
-MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp,
+MulticopterPositionControl::update_bezier_corner(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp,
 		const matrix::Vector3f &next_sp)
 {
 
@@ -699,82 +712,150 @@ MulticopterPositionControl::update_bezier(const matrix::Vector3f &prev_sp, const
 	matrix::Vector3f vel0 = (curr_sp - prev_sp).normalized() * _params.vel_cruise(0);
 	matrix::Vector3f vel1 = (next_sp - curr_sp).normalized() * _params.vel_cruise(0);
 
+	/* set bezier points in between current and previous, next and current */
+	prev_pt = (curr_sp - prev_sp) / 2.0 + prev_sp;
+	ctrl_pt = curr_sp;
+	next_pt = (next_sp - curr_sp)/2.0f + curr_sp;
+	_bez_2.setBezier(prev_pt, ctrl_pt, next_pt);
 
-	/* set bezier points  */
-	_bez.setBezFromVel(curr_sp, vel0, vel1);
-
-	/* compute acceleration required for path */
-	float max_acc = 0.5f;
-	matrix::Vector3f acc_request;
-	_bez.getAcceleration(acc_request);
-
-	/* check if acceleration is satisfied */
-	if (acc_request.length() > max_acc) {
-
-		/* compute time required for turn with required acceleration */
-		float time = (vel1 - vel0).length() / max_acc;
-		PX4_INFO("time: %.6f", (double)time);
-
-		/* update bezier points with new time */
-		_bez.setBezFromVel(curr_sp, vel0, vel1, time);
-
-		_bez.getAcceleration(acc_request);
-		PX4_INFO("acceleeratin after time: %.6f", (double)acc_request.length());
-	}
-
-	/* check if bezier points are not too far away from curr_sp relative to the distance
-	 *  to pervious and next point */
-	matrix::Vector3f dist_0 = (curr_sp - _bez.getPt0());
-	matrix::Vector3f dist_1 = (_bez.getPt1() - curr_sp);
-	matrix::Vector3f dist_0_tot = (curr_sp - prev_sp);
-	matrix::Vector3f dist_1_tot = (next_sp - curr_sp);
-	bool pt0_too_far = (dist_0.length() > dist_0_tot.length() / 2.0f);
-	bool pt1_too_far = (dist_1.length() > dist_1_tot.length() / 2.0f);
-
-	/* bezier points are more than half distance from curr_sp to prev_sp/next_sp */
-	if (pt0_too_far || pt1_too_far) {
-
-		if (pt0_too_far) {
-			PX4_INFO("pt0 too far");
-			prev_pt = curr_sp - dist_0_tot.normalized() * dist_0_tot.length() / 2.0f;
-			_bez.setBezier(prev_pt, curr_sp, _bez.getPt1());
-
-		}
-
-		if (pt1_too_far) {
-			PX4_INFO("pt1 too far");
-			next_pt = curr_sp + dist_1_tot.normalized() * dist_1_tot.length() / 2.0f;
-			_bez.setBezier(_bez.getPt0(), curr_sp, next_pt);
-		}
-
-		// get length of arc with resolution set to 0.005 time resolution
-		//float length = _bez.getArcLength(0.005f);
-
-		// adjust time such that acceleration is not too high assuming that
-		// start and end veloicyt are max
-		float time = sqrtf((_bez.getPt0() - _bez.getCtrl() * 2.0f + _bez.getPt1()).length() * 2.0f / max_acc);
-		//acc = (_pt0 - _ctrl * 2.0f + _pt1) * 2.0f/(_duration * _duration);
-		//float time = length/_params.vel_cruise(0);
-
-		// rest bezier such that velocity is not too high
-		_bez.setDuration(time);
-		PX4_INFO("time: %.6f", (double)time);
+	/* adjust duration such that max velocity and acceleration is not exceeded */
+	float length = _bez_2.getArcLength(0.005f);
+	float time = length / _params.vel_cruise(0);
+	_bez_2.setDuration(time);
 
 
+	_bez_1.setBezier(prev_sp, prev_sp, _bez_2.getPt0());
 
-	}
 
-	PX4_INFO("pt0 x %.6f, x %.6f, z %.6f", (double)_bez.getPt0()(0), (double)_bez.getPt0()(1), (double)_bez.getPt0()(2));
-	PX4_INFO("ctrl x %.6f, x %.6f, z %.6f", (double)_bez.getCtrl()(0), (double)_bez.getCtrl()(1),
-		 (double)_bez.getCtrl()(2));
-	PX4_INFO("pt1 x %.6f, x %.6f, z %.6f", (double)_bez.getPt1()(0), (double)_bez.getPt1()(1), (double)_bez.getPt1()(2));
+	PX4_INFO("corner");
+	PX4_INFO("on bez 2: %d", _on_bez_2);
+
+
+	PX4_INFO("bez1 pt0 x %.6f, x %.6f, z %.6f", (double)_bez_1.getPt0()(0), (double)_bez_1.getPt0()(1), (double)_bez_1.getPt0()(2));
+	PX4_INFO("bez1 ctrl x %.6f, x %.6f, z %.6f", (double)_bez_1.getCtrl()(0), (double)_bez_1.getCtrl()(1),
+		 (double)_bez_1.getCtrl()(2));
+	PX4_INFO("bez1 pt1 x %.6f, x %.6f, z %.6f", (double)_bez_1.getPt1()(0), (double)_bez_1.getPt1()(1), (double)_bez_1.getPt1()(2));
+
+	PX4_INFO("bez2 pt0 x %.6f, x %.6f, z %.6f", (double)_bez_2.getPt0()(0), (double)_bez_2.getPt0()(1), (double)_bez_2.getPt0()(2));
+	PX4_INFO("bez2 ctrl x %.6f, x %.6f, z %.6f", (double)_bez_2.getCtrl()(0), (double)_bez_2.getCtrl()(1),
+		(double)_bez_2.getCtrl()(2));
+	PX4_INFO("bez2 pt1 x %.6f, x %.6f, z %.6f", (double)_bez_2.getPt1()(0), (double)_bez_2.getPt1()(1), (double)_bez_2.getPt1()(2));
 	PX4_INFO("p x %.6f, x %.6f, z %.6f", (double)_pos(0), (double)_pos(1), (double)_pos(2));
+
+
+
+
+
+
+
+	///* set bezier points  */
+	//_bez.setBezFromVel(curr_sp, vel0, vel1);
+    //
+	///* compute acceleration required for path */
+	//float max_acc = 0.5f;
+	//matrix::Vector3f acc_request;
+	//_bez.getAcceleration(acc_request);
+    //
+	///* check if acceleration is satisfied */
+	//if (acc_request.length() > max_acc) {
+    //
+	//	/* compute time required for turn with required acceleration */
+	//	float time = (vel1 - vel0).length() / max_acc;
+	//	PX4_INFO("time: %.6f", (double)time);
+    //
+	//	/* update bezier points with new time */
+	//	_bez.setBezFromVel(curr_sp, vel0, vel1, time);
+    //
+	//	_bez.getAcceleration(acc_request);
+	//	PX4_INFO("acceleeratin after time: %.6f", (double)acc_request.length());
+	//}
+    //
+	///* check if bezier points are not too far away from curr_sp relative to the distance
+	// *  to pervious and next point */
+	//matrix::Vector3f dist_0 = (curr_sp - _bez.getPt0());
+	//matrix::Vector3f dist_1 = (_bez.getPt1() - curr_sp);
+	//matrix::Vector3f dist_0_tot = (curr_sp - prev_sp);
+	//matrix::Vector3f dist_1_tot = (next_sp - curr_sp);
+	//bool pt0_too_far = (dist_0.length() > dist_0_tot.length() / 2.0f);
+	//bool pt1_too_far = (dist_1.length() > dist_1_tot.length() / 2.0f);
+    //
+	///* bezier points are more than half distance from curr_sp to prev_sp/next_sp */
+	//if (pt0_too_far || pt1_too_far) {
+    //
+	//	if (pt0_too_far) {
+	//		PX4_INFO("pt0 too far");
+	//		prev_pt = curr_sp - dist_0_tot.normalized() * dist_0_tot.length() / 2.0f;
+	//		_bez.setBezier(prev_pt, curr_sp, _bez.getPt1());
+    //
+	//	}
+    //
+	//	if (pt1_too_far) {
+	//		PX4_INFO("pt1 too far");
+	//		next_pt = curr_sp + dist_1_tot.normalized() * dist_1_tot.length() / 2.0f;
+	//		_bez.setBezier(_bez.getPt0(), curr_sp, next_pt);
+	//	}
+    //
+	//	// get length of arc with resolution set to 0.005 time resolution
+	//	//float length = _bez.getArcLength(0.005f);
+    //
+	//	// adjust time such that acceleration is not too high assuming that
+	//	// start and end veloicyt are max
+	//	float time = sqrtf((_bez.getPt0() - _bez.getCtrl() * 2.0f + _bez.getPt1()).length() * 2.0f / max_acc);
+	//	//acc = (_pt0 - _ctrl * 2.0f + _pt1) * 2.0f/(_duration * _duration);
+	//	//float time = length/_params.vel_cruise(0);
+    //
+	//	// rest bezier such that velocity is not too high
+	//	_bez.setDuration(time);
+	//	PX4_INFO("time: %.6f", (double)time);
+    //
+    //
+    //
+	//}
+
+	//PX4_INFO("pt0 x %.6f, x %.6f, z %.6f", (double)_bez_2.getPt0()(0), (double)_bez_2.getPt0()(1), (double)_bez_2.getPt0()(2));
+	//PX4_INFO("ctrl x %.6f, x %.6f, z %.6f", (double)_bez_2.getCtrl()(0), (double)_bez_2.getCtrl()(1),
+	//	 (double)_bez.getCtrl()(2));
+	//PX4_INFO("pt1 x %.6f, x %.6f, z %.6f", (double)_bez_2.getPt1()(0), (double)_bez_2.getPt1()(1), (double)_bez_2.getPt1()(2));
+	//PX4_INFO("p x %.6f, x %.6f, z %.6f", (double)_pos(0), (double)_pos(1), (double)_pos(2));
 
 
 
 	/*compute lines to pass before any change in bezier mode can occur*/
 	//vec_to_pass0(0) += _bez.getPt0(0);
 	//vec
+
+
+}
+void MulticopterPositionControl::update_bezier_line(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp) {
+
+	/* deisred velocity before deceleration and at loiter */
+	matrix::Vector3f vel_at_loiter(0.0f, 0.0f, 0.0f);
+	matrix::Vector3f vel_at_max = (curr_sp - prev_sp).normalized() * _params.vel_cruise(0);
+
+	/* compute bez_1 and bez_2
+	 * we assume that max velocity is achieved when reaching the end of bez_1
+	 */
+	float max_acc = 0.3f; // this value serves as tuning parameter and defines how much it should decelerate
+	float duration = (vel_at_max - vel_at_loiter).length() / max_acc;
+	_bez_2.setBezFromVel(curr_sp, vel_at_max, vel_at_loiter, duration);
+	_bez_1.setBezier(prev_sp, prev_sp, _bez_2.getPt0());
+
+
+	PX4_INFO("line");
+
+	PX4_INFO("on bez 2: %d", _on_bez_2);
+
+	PX4_INFO("bez1 pt0 x %.6f, x %.6f, z %.6f", (double)_bez_1.getPt0()(0), (double)_bez_1.getPt0()(1), (double)_bez_1.getPt0()(2));
+	PX4_INFO("bez1 ctrl x %.6f, x %.6f, z %.6f", (double)_bez_1.getCtrl()(0), (double)_bez_1.getCtrl()(1),
+		 (double)_bez_1.getCtrl()(2));
+	PX4_INFO("bez1 pt1 x %.6f, x %.6f, z %.6f", (double)_bez_1.getPt1()(0), (double)_bez_1.getPt1()(1), (double)_bez_1.getPt1()(2));
+
+	PX4_INFO("bez2 pt0 x %.6f, x %.6f, z %.6f", (double)_bez_2.getPt0()(0), (double)_bez_2.getPt0()(1), (double)_bez_2.getPt0()(2));
+	PX4_INFO("bez2 ctrl x %.6f, x %.6f, z %.6f", (double)_bez_2.getCtrl()(0), (double)_bez_2.getCtrl()(1),
+		(double)_bez_2.getCtrl()(2));
+	PX4_INFO("bez2 pt1 x %.6f, x %.6f, z %.6f", (double)_bez_2.getPt1()(0), (double)_bez_2.getPt1()(1), (double)_bez_2.getPt1()(2));
+	PX4_INFO("p x %.6f, x %.6f, z %.6f", (double)_pos(0), (double)_pos(1), (double)_pos(2));
+
 
 
 }
@@ -1523,8 +1604,9 @@ void MulticopterPositionControl::control_auto(float dt)
 		}
 
 		/* check if new triplets are available */
-		if ((curr_sp - _bez.getCtrl()).length() > SIGMA) {
+		if ((curr_sp - _curr_sp_prev).length() > SIGMA) {
 			_triplet_update = true;
+			_curr_sp_prev = curr_sp;
 		}
 	}
 
@@ -1764,96 +1846,241 @@ void MulticopterPositionControl::control_auto(float dt)
 		//
 		// use specialized controller for waypoint passing
 		// acceleration feed forward not implemented yet
-		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION
-		    || _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
-
-			/* acceleration request is just needed to make sure that path does not ask for too much acceleration */
-			matrix::Vector3f acc_request;
-
-			/* we dont have a next setpoint or currenst setpoint is loiter: we dont want to smooth */
-			if (!next_setpoint_valid || (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER)) {
-
-				/* just go to that point */
-				_bez.setBezier(prev_sp, curr_sp, curr_sp);
-
-				/* ajust time according to velocity max*/
-				float dummy = (curr_sp - prev_sp).length();  //distance
-				dummy = dummy / cruising_speed(0); //time
-				_bez.setDuration(dummy);
-				_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
 
+		/*
+		 * if takeoff, just go straight up
+		 */
+		bool takeoff = _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF;
 
-				//matrix::Vector3f ddd;
-				//_bez.getAcceleration(ddd);
-				//PX4_INFO("accerlation x: %.6f, y: %.6f, z: %.6f", (double)ddd(0), (double)ddd(1), (double)ddd(2));
-				//PX4_INFO("vel ff x: %.6f, y %.6f, z %.6f", (double)_vel_ff(0), (double)_vel_ff(1), (double)_vel_ff(2));
+		/* if loiter, we just want to go along straight line
+		 * if position type but no next_sp, just want to go along straight line
+		 */
+		bool straight_line = (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER || (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION && !next_setpoint_valid));
 
-				/* we are going stright to waypoint */
-				_do_bez_corner = false;
+		/* if all setpoints valid
+		 * then do a smoothed corner
+		 */
+		bool smoothed_corner = (current_setpoint_valid && previous_setpoint_valid && next_setpoint_valid );
 
+		//PX4_INFO("takeoff type: %d",(_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF) );
+		//PX4_INFO("straigh line: %d", straight_line);
+		//PX4_INFO("triplet update: %d", _triplet_update);
+		//PX4_INFO("next valid: %d", next_setpoint_valid);
 
-				/* we have three points, no loiter: smmoothed corner can be computed*/
+		/* do takeoff */
+		if( takeoff ){
+			PX4_INFO("takeoff");
+			_bez_1.setBezier(curr_sp, curr_sp, curr_sp);
+			_bez_2.setBezier(curr_sp, next_sp, next_sp);
 
-			} else if (previous_setpoint_valid && next_setpoint_valid) {
-
-				/* if triplets have been updated and we are close to pt1, dp an update */
-				if (_triplet_update && (_bez.getPt1() - _pos).length() < 2.0f) {
-					update_bezier(prev_sp, curr_sp, next_sp);
-					PX4_INFO("defulat update");
-					/* since close to pt1, we enter again straight line*/
-					_triplet_update = false;
-					_do_bez_corner = false;
-				}
-
-				/* if we changed waypoints during flight (considers changed up to 2m close)
-				 *  and during first iteration */
-				else if (_triplet_update && (_bez.getPt0() - _pos).length() > 2.0f && !_do_bez_corner) {
-					update_bezier(prev_sp, curr_sp, next_sp);
-					PX4_INFO("do update up to 2m");
-					/* reset triplet update flag since we just updated*/
-					_triplet_update = false;
-
-				}
-
-
-				/* if close to corner, do bezier */
-				if ((_pos - _bez.getPt0()).length() < 3.0f) {
-					_do_bez_corner  = true;
-				}
-
-				if ((_pos - _bez.getPt1()).length() < 3.0f) {
-					_do_bez_corner = false;
-				}
-
-				/* apply corner or straight line case */
-				if (_do_bez_corner) {
-					//PX4_INFO("do corner");
-					_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
-
-				} else {
-
-					bezier::BezierQuad bezLine(prev_sp, curr_sp, curr_sp);
-
-					/* ajust time according to velocity max*/
-					//float dummy =  (curr_sp - prev_sp).length(); //distance
-					//dummy = dummy/cruising_speed(0); //time
-					//bezLine.setDuraiont(dummy);
-					bezLine.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
-
-					/* if straigth, just try to go with full speed */
-					_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
-
-
-
-				}
-			}
-
-			/* alsways saturate velocity feed forward */
-			_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
-			//PX4_INFO("vel ff x: %.6f, y %.6f, z %.6f", (double)_vel_ff(0), (double)_vel_ff(1), (double)_vel_ff(2));
 
 		}
+		/* compute straight line if triplet has updated */
+		else if(straight_line){
+
+			/* case 1: if we are in bez 1,
+			 * we can go update once triplet is updated
+			 */
+			if(_triplet_update && !_on_bez_2){
+
+				update_bezier_line(prev_sp, curr_sp);
+				_triplet_update = false;
+			}
+
+
+			/* since the triplet updates before we finished bez_2,
+			 * we only want to update once close to the end of bez_2 such
+			 * that the vehicle finishes its smoothed path: ToDo: somehow it should not be allowed to change waypoints once the vehicle is close to current setpoint
+			*/
+			bool close_to_bez_2_end = ((_bez_2.getPt1() - _pos).length() < 5.0f);
+			if(_triplet_update && _on_bez_2 && close_to_bez_2_end){
+
+				update_bezier_line(prev_sp, curr_sp);
+				_triplet_update = false;
+
+			}
+
+		}
+		/* compute smoothed corner */
+		else if(smoothed_corner){
+
+			/* if we are in bez_1,
+			 * we can update once _triplet has updated (this could occur during flight
+			 */
+			if(_triplet_update && !_on_bez_2){
+				update_bezier_corner(prev_sp, curr_sp, next_sp);
+				_triplet_update = false;
+				PX4_INFO(" we can update once _triplet has updated (this could occur during flight");
+			}
+
+			/* since the triplet updates before we finished bez_2,
+			 * we only want to update once close to the end of bez_2 such
+			 * that the vehicle finishes its smoothed path: ToDo: somehow it should not be allowed to change waypoints once the vehicle is close to current setpoint
+			 */
+			bool close_to_bez_2_end = ((_bez_2.getPt1() - _pos).length() < 5.0f);
+
+			if(_triplet_update && _on_bez_2 && close_to_bez_2_end){
+				update_bezier_corner(prev_sp, curr_sp, next_sp);
+				_triplet_update = false;
+				PX4_INFO("we only want to update once close to the end of bez_2 such");
+
+			}
+
+
+		}
+
+
+
+
+		PX4_INFO("dist to pt0: %.6f", (double)(_pos - _bez_2.getPt0()).length());
+
+		//PX4_INFO("bez1 pt0 x %.6f, x %.6f, z %.6f", (double)_bez_1.getPt0()(0), (double)_bez_1.getPt0()(1), (double)_bez_1.getPt0()(2));
+		//PX4_INFO("bez1 ctrl x %.6f, x %.6f, z %.6f", (double)_bez_1.getCtrl()(0), (double)_bez_1.getCtrl()(1),
+		//	 (double)_bez_1.getCtrl()(2));
+		//PX4_INFO("bez1 pt1 x %.6f, x %.6f, z %.6f", (double)_bez_1.getPt1()(0), (double)_bez_1.getPt1()(1), (double)_bez_1.getPt1()(2));
+        //
+		//PX4_INFO("bez2 pt0 x %.6f, x %.6f, z %.6f", (double)_bez_2.getPt0()(0), (double)_bez_2.getPt0()(1), (double)_bez_2.getPt0()(2));
+		//PX4_INFO("bez2 ctrl x %.6f, x %.6f, z %.6f", (double)_bez_2.getCtrl()(0), (double)_bez_2.getCtrl()(1),
+		//	(double)_bez_2.getCtrl()(2));
+		//PX4_INFO("bez2 pt1 x %.6f, x %.6f, z %.6f", (double)_bez_2.getPt1()(0), (double)_bez_2.getPt1()(1), (double)_bez_2.getPt1()(2));
+        //
+        //
+        //
+		//PX4_INFO("next x %.6f, x %.6f, z %.6f", (double)next_sp(0), (double)next_sp(1), (double)next_sp(2));
+        //
+		//PX4_INFO("cur x %.6f, x %.6f, z %.6f", (double)curr_sp(0), (double)curr_sp(1), (double)curr_sp(2));
+        //
+		//PX4_INFO("pos x %.6f, x %.6f, z %.6f", (double)_pos(0), (double)_pos(1), (double)_pos(2));
+
+
+
+
+
+
+		//if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION
+		//    || _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
+
+		//Sif (false){
+        //S
+		//S	/* acceleration request is just needed to make sure that path does not ask for too much acceleration */
+		//S	matrix::Vector3f acc_request;
+        //S
+		//S	/* we dont have a next setpoint or currenst setpoint is loiter: we dont want to smooth */
+		//S	if (!next_setpoint_valid || (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER)) {
+        //S
+        //S
+		//S		PX4_INFO("dont smooth");
+		//S		/* just go to that point */
+		//S		_bez.setBezier(prev_sp, curr_sp, curr_sp);
+        //S
+		//S		/* ajust time according to velocity max*/
+		//S		float dummy = (curr_sp - prev_sp).length();  //distance
+		//S		dummy = dummy / cruising_speed(0); //time
+		//S		_bez.setDuration(dummy);
+		//S		_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
+        //S
+        //S
+        //S
+		//S		//matrix::Vector3f ddd;
+		//S		//_bez.getAcceleration(ddd);
+		//S		//PX4_INFO("accerlation x: %.6f, y: %.6f, z: %.6f", (double)ddd(0), (double)ddd(1), (double)ddd(2));
+		//S		//PX4_INFO("vel ff x: %.6f, y %.6f, z %.6f", (double)_vel_ff(0), (double)_vel_ff(1), (double)_vel_ff(2));
+        //S
+		//S		/* we are going stright to waypoint */
+		//S		_on_bez_2 = false;
+        //S
+        //S
+		//S	/* we have three points and current is not loiter: do smmooth corner*/
+		//S	} else if (previous_setpoint_valid && next_setpoint_valid) {
+        //S
+		//S		/* if triplets have been updated and we are close to pt1, dp an update */
+		//S		if (_triplet_update && (_bez.getPt1() - _pos).length() < 2.0f) {
+		//S			update_bezier_corner(prev_sp, curr_sp, next_sp);
+		//S			PX4_INFO("defulat update");
+		//S			/* since close to pt1, we enter again straight line*/
+		//S			_triplet_update = false;
+		//S			_on_bez_2 = false;
+		//S		}
+        //S
+		//S		/* if we changed waypoints during flight (considers changed up to 2m close)
+		//S		 *  and during first iteration */
+		//S		else if (_triplet_update && (_bez.getPt0() - _pos).length() > 2.0f && !_on_bez_2) {
+		//S			update_bezier_corner(prev_sp, curr_sp, next_sp);
+		//S			PX4_INFO("do update up to 2m");
+		//S			/* reset triplet update flag since we just updated*/
+		//S			_triplet_update = false;
+        //S
+		//S		}
+        //S
+        //S
+		//S		/* if close to corner, do bezier */
+		//S		if ((_pos - _bez.getPt0()).length() < 3.0f) {
+		//S			_on_bez_2  = true;
+		//S		}
+        //S
+		//S		if ((_pos - _bez.getPt1()).length() < 3.0f) {
+		//S			_on_bez_2 = false;
+		//S		}
+        //S
+		//S		/* apply corner or straight line case */
+		//S		if (_on_bez_2) {
+		//S			PX4_INFO("do corner");
+		//S			_bez.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
+        //S
+		//S		} else {
+        //S
+		//S			PX4_INFO("do bez line");
+		//S			bezier::BezierQuad bezLine(prev_sp, curr_sp, curr_sp);
+        //S
+		//S			/* ajust time according to velocity max*/
+		//S			//float dummy =  (curr_sp - prev_sp).length(); //distance
+		//S			//dummy = dummy/cruising_speed(0); //time
+		//S			//bezLine.setDuraiont(dummy);
+		//S			bezLine.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
+        //S
+		//S			/* if straigth, just try to go with full speed */
+		//S			_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
+        //S
+        //S
+        //S
+		//S		}
+		//S	}
+        //S
+		//S	/* alsways saturate velocity feed forward */
+		//S	_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
+		//S	//PX4_INFO("vel ff x: %.6f, y %.6f, z %.6f", (double)_vel_ff(0), (double)_vel_ff(1), (double)_vel_ff(2));
+        //S
+		//S}
+
+		/* compute distance to closest point on _bez_1 and _bez_2 to know where we are on trajectory */
+		float dist_1 = _bez_1.getDistToClosestPoint(_pos);
+		float dist_2 = _bez_2.getDistToClosestPoint(_pos);
+
+		matrix::Vector3f acc_request; //not needed currently
+
+		/* we are in bez_1 */
+		if( dist_1 < dist_2){
+			PX4_INFO("in bez 1");
+
+			/* compute desired states */
+			_bez_1.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
+			_bez_1.getAcceleration(acc_request);
+			_on_bez_2 = false;
+
+		/* we are in bez_2 */
+		}else{
+			PX4_INFO("in bez 2");
+			_bez_2.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
+			_bez_2.getAcceleration(acc_request);
+			_on_bez_2 = true;
+
+		}
+
+		//PX4_INFO("acc request: %.6f", (double)acc_request.length());
+		/* alsways saturate velocity feed forward */
+		_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
+
 
 
 		/* update yaw setpoint if needed */
