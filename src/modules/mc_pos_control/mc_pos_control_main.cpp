@@ -334,6 +334,12 @@ private:
 	void 		update_bezier_line(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp);
 
 
+	/*
+	 * computes desired position when in auto mode
+	 * and tracking is enabled
+	 */
+	void 		compute_desired_tracking_position(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp, const matrix::Vector3f &next_sp, const bool next_setpoint_valid, const float dt);
+
 	/**
 	 * Update reference for local position projection
 	 */
@@ -750,6 +756,110 @@ void MulticopterPositionControl::update_bezier_line(const matrix::Vector3f &prev
 	float duration = (vel_at_max - vel_at_loiter).length() / max_acc;
 	_bez_2.setBezFromVel(curr_sp, vel_at_max, vel_at_loiter, duration);
 	_bez_1.setBezier(prev_sp, prev_sp, _bez_2.getPt0());
+
+}
+
+
+void
+MulticopterPositionControl::compute_desired_tracking_position(const matrix::Vector3f &prev_sp, const matrix::Vector3f &curr_sp, const matrix::Vector3f &next_sp, const bool next_setpoint_valid, const float dt){
+
+	// get cruising speed
+	matrix::Vector3f cruising_speed = _params.vel_cruise;
+
+	if (PX4_ISFINITE(_pos_sp_triplet.current.cruising_speed)&&
+	_pos_sp_triplet.current.cruising_speed > 0.1f) {
+		cruising_speed(0) = _pos_sp_triplet.current.cruising_speed;
+		cruising_speed(1) = _pos_sp_triplet.current.cruising_speed;
+	}
+
+	matrix::Vector3f scale = _params.pos_p.edivide(cruising_speed);
+
+	/* convert current setpoint to scaled space */
+	matrix::Vector3f curr_sp_s = curr_sp.emult(scale);
+
+	/* by default use current setpoint as is */
+	matrix::Vector3f pos_sp_s = curr_sp_s;
+
+
+		if ((curr_sp - prev_sp).length() > MIN_DIST) {
+
+			/* find X - cross point of unit sphere and trajectory */
+			matrix::Vector3f pos_s = _pos.emult(scale);
+			matrix::Vector3f prev_sp_s = prev_sp.emult(scale);
+			matrix::Vector3f prev_curr_s = curr_sp_s - prev_sp_s;
+			matrix::Vector3f curr_pos_s = pos_s - curr_sp_s;
+			float curr_pos_s_len = curr_pos_s.length();
+
+			if (curr_pos_s_len < 1.0f) {
+				/* copter is closer to waypoint than unit radius */
+				/* check next waypoint and use it to avoid slowing down when passing via waypoint */
+
+				if (next_setpoint_valid) {
+
+					if ((next_sp - curr_sp).length() > MIN_DIST) {
+						matrix::Vector3f next_sp_s = next_sp.emult(scale);
+
+						/* calculate angle prev - curr - next */
+						matrix::Vector3f curr_next_s = next_sp_s - curr_sp_s;
+						matrix::Vector3f prev_curr_s_norm =
+								prev_curr_s.normalized();
+
+						/* cos(a) * curr_next, a = angle between current and next trajectory segments */
+						float cos_a_curr_next = prev_curr_s_norm * curr_next_s;
+
+						/* cos(b), b = angle pos - curr_sp - prev_sp */
+						float cos_b = -curr_pos_s * prev_curr_s_norm
+								/ curr_pos_s_len;
+
+						if (cos_a_curr_next > 0.0f && cos_b > 0.0f) {
+							float curr_next_s_len = curr_next_s.length();
+
+							/* if curr - next distance is larger than unit radius, limit it */
+							if (curr_next_s_len > 1.0f) {
+								cos_a_curr_next /= curr_next_s_len;
+							}
+
+							/* feed forward position setpoint offset */
+							matrix::Vector3f pos_ff = prev_curr_s_norm
+									* cos_a_curr_next * cos_b * cos_b
+									* (1.0f - curr_pos_s_len)
+									* (1.0f
+											- expf(
+													-curr_pos_s_len
+															* curr_pos_s_len
+															* 20.0f));
+							pos_sp_s += pos_ff;
+						}
+					}
+				}
+
+			} else {
+				bool near = cross_sphere_line(pos_s, 1.0f, prev_sp_s, curr_sp_s,
+						pos_sp_s);
+
+				if (!near) {
+					/* we're far away from trajectory, pos_sp_s is set to the nearest point on the trajectory */
+					pos_sp_s = pos_s + (pos_sp_s - pos_s).normalized();
+				}
+			}
+		}
+
+
+
+	/* move setpoint not faster than max allowed speed */
+	matrix::Vector3f pos_sp_old_s = _pos_sp.emult(scale);
+
+	/* difference between current and desired position setpoints, 1 = max speed */
+	matrix::Vector3f d_pos_m = (pos_sp_s - pos_sp_old_s).edivide(_params.pos_p);
+	float d_pos_m_len = d_pos_m.length();
+
+	if (d_pos_m_len > dt) {
+		pos_sp_s = pos_sp_old_s
+				+ (d_pos_m / d_pos_m_len * dt).emult(_params.pos_p);
+	}
+
+	/* scale result back to normal space */
+	_pos_sp = pos_sp_s.edivide(scale);
 
 }
 
@@ -1522,9 +1632,6 @@ void MulticopterPositionControl::control_auto(float dt)
 			}
 		}
 
-	} else {
-
-
 	}
 
 	if (_pos_sp_triplet.next.valid) {
@@ -1545,311 +1652,150 @@ void MulticopterPositionControl::control_auto(float dt)
 				vec_to_pass1.normalized();
 			}
 
-			//PX4_INFO("next x: %.6f, y: %.6f, z: %.6f",(double)next_sp(0), (double)next_sp(1), (double)next_sp(2));
 		}
 	}
-
 
 
 	if (current_setpoint_valid &&
 	    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
 
-		// get cruising speed
-		matrix::Vector3f cruising_speed = _params.vel_cruise;
 
-		if (PX4_ISFINITE(_pos_sp_triplet.current.cruising_speed) &&
-		    _pos_sp_triplet.current.cruising_speed > 0.1f) {
-			cruising_speed(0) = _pos_sp_triplet.current.cruising_speed;
-			cruising_speed(1) = _pos_sp_triplet.current.cruising_speed;
-		}
+		/* if want to follow target,
+		 * then use carrot style approach
+		*/
+		bool follow_target = (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET &&  previous_setpoint_valid);
 
-		matrix::Vector3f scale = _params.pos_p.edivide(cruising_speed);
+		if(follow_target){
 
-		/* convert current setpoint to scaled space */
-		matrix::Vector3f curr_sp_s = curr_sp.emult(scale);
+			compute_desired_tracking_position(prev_sp, curr_sp, next_sp, previous_setpoint_valid, dt);
 
-		/* by default use current setpoint as is */
-		matrix::Vector3f pos_sp_s = curr_sp_s;
+		/* we want to do normal waypoint following
+		 * with possible smoothing
+		 */
+		} else {
 
+			/* compute distance to closest point on _bez_1 and _bez_2 to know where we are on trajectory */
+			float dist_1 = _bez_1.getDistToClosestPoint(_pos);
+			float dist_2 = _bez_2.getDistToClosestPoint(_pos);
 
-		// folow target
-		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET &&
-		    previous_setpoint_valid) {
+			/* we are in bez_2 if distance to bez_1 is greater than to bez_2 or
+			 * we are 1m close to previous point of bez_2
+			 */
+			_on_bez_2 = (dist_1 >= dist_2); // || ((_pos - _bez_2.getPt0()).length() < 2.0f) );
 
-			if ((curr_sp - prev_sp).length() > MIN_DIST) {
+			/* if we are on bez_2, we can set bez_1 equal bez_2 since
+			 * bez_1  is already passed and the vehicle should not go back to bez_1
+			 * until new update
+			 */
+			if (_on_bez_2) {
+				_bez_1 = _bez_2;
+			}
 
-				/* find X - cross point of unit sphere and trajectory */
-				matrix::Vector3f pos_s = _pos.emult(scale);
-				matrix::Vector3f prev_sp_s = prev_sp.emult(scale);
-				matrix::Vector3f prev_curr_s = curr_sp_s - prev_sp_s;
-				matrix::Vector3f curr_pos_s = pos_s - curr_sp_s;
-				float curr_pos_s_len = curr_pos_s.length();
+			/*
+			 * if takeoff type, just go straight up
+			 */
+			bool takeoff = _pos_sp_triplet.current.type
+					== position_setpoint_s::SETPOINT_TYPE_TAKEOFF;
 
-				if (curr_pos_s_len < 1.0f) {
-					/* copter is closer to waypoint than unit radius */
-					/* check next waypoint and use it to avoid slowing down when passing via waypoint */
+			/* if loiter, we just want to go along straight line
+			 * if position type but no next_sp, just want to go along straight line
+			 */
+			bool straight_line = (_pos_sp_triplet.current.type
+					== position_setpoint_s::SETPOINT_TYPE_LOITER
+					|| (_pos_sp_triplet.current.type
+							== position_setpoint_s::SETPOINT_TYPE_POSITION
+							&& !next_setpoint_valid));
 
-					if (next_setpoint_valid) {
+			/* if all setpoints valid
+			 * then do a smoothed corner
+			 */
+			bool smoothed_corner = (current_setpoint_valid
+					&& previous_setpoint_valid && next_setpoint_valid
+					&& (_pos_sp_triplet.current.type
+							!= position_setpoint_s::SETPOINT_TYPE_IDLE));
 
-						if ((next_sp - curr_sp).length() > MIN_DIST) {
-							matrix::Vector3f next_sp_s = next_sp.emult(scale);
+			/* do takeoff */
+			if (takeoff) {
 
-							/* calculate angle prev - curr - next */
-							matrix::Vector3f curr_next_s = next_sp_s - curr_sp_s;
-							matrix::Vector3f prev_curr_s_norm = prev_curr_s.normalized();
+				/* just set bezier points as target point */
+				_bez_2.setBezier(curr_sp, curr_sp, curr_sp);
+				_bez_1.setBezier(curr_sp, next_sp, next_sp);
 
-							/* cos(a) * curr_next, a = angle between current and next trajectory segments */
-							float cos_a_curr_next = prev_curr_s_norm * curr_next_s;
+			}
+			/* compute straight line if triplet has updated */
+			else if (straight_line) {
 
-							/* cos(b), b = angle pos - curr_sp - prev_sp */
-							float cos_b = -curr_pos_s * prev_curr_s_norm / curr_pos_s_len;
+				/* case 1:
+				 * if we are in bez 1,
+				 * we can do update once triplet is updated
+				 */
+				bool case_1 = (_triplet_update && !_on_bez_2);
 
-							if (cos_a_curr_next > 0.0f && cos_b > 0.0f) {
-								float curr_next_s_len = curr_next_s.length();
+				/* case 2:
+				 * since the triplet updates before we finished bez_2,
+				 * we only want to update once close to the end of bez_2 such
+				 * that the vehicle finishes its smoothed path: ToDo: somehow it should not be allowed to change waypoints once the vehicle is close to current setpoint
+				 */
+				bool close_to_bez_2_end = ((_bez_2.getPt1() - _pos).length()
+						< 2.0f);
+				bool case_2 = (_triplet_update && _on_bez_2
+						&& close_to_bez_2_end);
 
-								/* if curr - next distance is larger than unit radius, limit it */
-								if (curr_next_s_len > 1.0f) {
-									cos_a_curr_next /= curr_next_s_len;
-								}
-
-								/* feed forward position setpoint offset */
-								matrix::Vector3f pos_ff = prev_curr_s_norm *
-											  cos_a_curr_next * cos_b * cos_b * (1.0f - curr_pos_s_len) *
-											  (1.0f - expf(-curr_pos_s_len * curr_pos_s_len * 20.0f));
-
-								pos_sp_s += pos_ff;
-							}
-						}
-					}
-
-				} else {
-					bool near = cross_sphere_line(pos_s, 1.0f, prev_sp_s, curr_sp_s, pos_sp_s);
-
-					if (!near) {
-						/* we're far away from trajectory, pos_sp_s is set to the nearest point on the trajectory */
-						pos_sp_s = pos_s + (pos_sp_s - pos_s).normalized();
-					}
+				/* do update if case1 or case 2 are true */
+				if (case_1 || case_2) {
+					update_bezier_line(prev_sp, curr_sp);
+					_triplet_update = false;
 				}
+
+			}
+			/* compute smoothed corner */
+			else if (smoothed_corner) {
+
+				/* case 1:
+				 * if we are in bez_1,
+				 * we can update once _triplet has updated (this could occur during flight)
+				 */
+				bool case_1 = (_triplet_update && !_on_bez_2);
+
+				/* case 2:
+				 * since the triplet updates before we finished bez_2,
+				 * we only want to update once close to the end of bez_2 such
+				 * that the vehicle finishes its smoothed path: ToDo: somehow it should not be allowed to change waypoints once the vehicle is close to current setpoint
+				 */
+				bool close_to_bez_2_end = ((_bez_2.getPt1() - _pos).length()
+						< 5.0f);
+				bool case_2 = (_triplet_update && _on_bez_2
+						&& close_to_bez_2_end);
+
+				/* do update if case1 or case2 are true */
+				if (case_1 || case_2) {
+					update_bezier_corner(prev_sp, curr_sp, next_sp);
+					_triplet_update = false;
+				}
+
 			}
 
+			matrix::Vector3f acc_request; //this will be used once acceleraiton feedfoward is added
 
-		}
+			/* we are in bez_1 */
+			if (!_on_bez_2) {
+				/* compute desired states */
+				_bez_1.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
+				/* we are in bez_2 */
+			} else {
+				/* compute desired states */
+				_bez_2.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
 
-		/* move setpoint not faster than max allowed speed */
-		matrix::Vector3f pos_sp_old_s = _pos_sp.emult(scale);
-
-		/* difference between current and desired position setpoints, 1 = max speed */
-		matrix::Vector3f d_pos_m = (pos_sp_s - pos_sp_old_s).edivide(_params.pos_p);
-		float d_pos_m_len = d_pos_m.length();
-
-		if (d_pos_m_len > dt) {
-			pos_sp_s = pos_sp_old_s + (d_pos_m / d_pos_m_len * dt).emult(_params.pos_p);
-		}
-
-		/* scale result back to normal space */
-		_pos_sp = pos_sp_s.edivide(scale);
-
-		//if (current_setpoint_valid &&
-		//    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
-		//
-		//	/* scaled space: 1 == position error resulting max allowed speed */
-		//
-		//	matrix::Vector3f cruising_speed = _params.vel_cruise;
-		//
-		//	if (PX4_ISFINITE(_pos_sp_triplet.current.cruising_speed) &&
-		//	    _pos_sp_triplet.current.cruising_speed > 0.1f) {
-		//		cruising_speed(0) = _pos_sp_triplet.current.cruising_speed;
-		//		cruising_speed(1) = _pos_sp_triplet.current.cruising_speed;
-		//	}
-		//
-		//	matrix::Vector3f scale = _params.pos_p.edivide(cruising_speed);
-		//
-		//	/* convert current setpoint to scaled space */
-		//	matrix::Vector3f curr_sp_s = curr_sp.emult(scale);
-		//
-		//	/* by default use current setpoint as is */
-		//	matrix::Vector3f pos_sp_s = curr_sp_s;
-		//
-		//	if ((_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION  ||
-		//	     _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET) &&
-		//	    previous_setpoint_valid) {
-		//
-		//		/* follow "previous - current" line */
-		//
-		//		if ((curr_sp - prev_sp).length() > MIN_DIST) {
-		//
-		//			/* find X - cross point of unit sphere and trajectory */
-		//			matrix::Vector3f pos_s = _pos.emult(scale);
-		//			matrix::Vector3f prev_sp_s = prev_sp.emult(scale);
-		//			matrix::Vector3f prev_curr_s = curr_sp_s - prev_sp_s;
-		//			matrix::Vector3f curr_pos_s = pos_s - curr_sp_s;
-		//			float curr_pos_s_len = curr_pos_s.length();
-		//
-		//			if (curr_pos_s_len < 1.0f) {
-		//				/* copter is closer to waypoint than unit radius */
-		//				/* check next waypoint and use it to avoid slowing down when passing via waypoint */
-		//				if (_pos_sp_triplet.next.valid) {
-		//					matrix::Vector3f next_sp;
-		//					map_projection_project(&_ref_pos,
-		//							       _pos_sp_triplet.next.lat, _pos_sp_triplet.next.lon,
-		//							       &next_sp.data[0], &next_sp.data[1]);
-		//					next_sp(2) = -(_pos_sp_triplet.next.alt - _ref_alt);
-		//
-		//					if ((next_sp - curr_sp).length() > MIN_DIST) {
-		//						matrix::Vector3f next_sp_s = next_sp.emult(scale);
-		//
-		//						/* calculate angle prev - curr - next */
-		//						matrix::Vector3f curr_next_s = next_sp_s - curr_sp_s;
-		//						matrix::Vector3f prev_curr_s_norm = prev_curr_s.normalized();
-		//
-		//						/* cos(a) * curr_next, a = angle between current and next trajectory segments */
-		//						float cos_a_curr_next = prev_curr_s_norm * curr_next_s;
-		//
-		//						/* cos(b), b = angle pos - curr_sp - prev_sp */
-		//						float cos_b = -curr_pos_s * prev_curr_s_norm / curr_pos_s_len;
-		//
-		//						if (cos_a_curr_next > 0.0f && cos_b > 0.0f) {
-		//							float curr_next_s_len = curr_next_s.length();
-		//
-		//							/* if curr - next distance is larger than unit radius, limit it */
-		//							if (curr_next_s_len > 1.0f) {
-		//								cos_a_curr_next /= curr_next_s_len;
-		//							}
-		//
-		//							/* feed forward position setpoint offset */
-		//							matrix::Vector3f pos_ff = prev_curr_s_norm *
-		//										 cos_a_curr_next * cos_b * cos_b * (1.0f - curr_pos_s_len) *
-		//										 (1.0f - expf(-curr_pos_s_len * curr_pos_s_len * 20.0f));
-		//							pos_sp_s += pos_ff;
-		//						}
-		//					}
-		//				}
-		//
-		//			} else {
-		//				bool near = cross_sphere_line(pos_s, 1.0f, prev_sp_s, curr_sp_s, pos_sp_s);
-		//
-		//				if (!near) {
-		//					/* we're far away from trajectory, pos_sp_s is set to the nearest point on the trajectory */
-		//					pos_sp_s = pos_s + (pos_sp_s - pos_s).normalized();
-		//				}
-		//			}
-		//		}
-		//	}
-		//
-		// use specialized controller for waypoint passing
-		// acceleration feed forward not implemented yet
-
-		/* compute distance to closest point on _bez_1 and _bez_2 to know where we are on trajectory */
-		float dist_1 = _bez_1.getDistToClosestPoint(_pos);
-		float dist_2 = _bez_2.getDistToClosestPoint(_pos);
-
-		/* we are in bez_2 if distance to bez_1 is greater than to bez_2 or
-		 * we are 1m close to previous point of bez_2
-		 */
-		_on_bez_2 = (dist_1 >= dist_2 );// || ((_pos - _bez_2.getPt0()).length() < 2.0f) );
-
-
-		/* if we are on bez_2, we can set bez_1 equal bez_2 since
-		 * bez_1  is already passed and the vehicle should not go back to bez_1
-		 * until new update
-		 */
-		if(_on_bez_2){
-			_bez_1 = _bez_2;
-		}
-
-		/*
-		 * if takeoff type, just go straight up
-		 */
-		bool takeoff = _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF;
-
-		/* if loiter, we just want to go along straight line
-		 * if position type but no next_sp, just want to go along straight line
-		 */
-		bool straight_line = (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER || (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_POSITION && !next_setpoint_valid));
-
-		/* if all setpoints valid
-		 * then do a smoothed corner
-		 */
-		bool smoothed_corner = (current_setpoint_valid && previous_setpoint_valid && next_setpoint_valid );
-
-		/* do takeoff */
-		if( takeoff ){
-
-			/* just set bezier points as target point */
-			_bez_2.setBezier(curr_sp, curr_sp, curr_sp);
-			_bez_1.setBezier(curr_sp, next_sp, next_sp);
-
-		}
-		/* compute straight line if triplet has updated */
-		else if(straight_line){
-
-			/* case 1:
-			 * if we are in bez 1,
-			 * we can do update once triplet is updated
-			 */
-			bool case_1 = (_triplet_update && !_on_bez_2);
-
-			/* case 2:
-			 * since the triplet updates before we finished bez_2,
-			 * we only want to update once close to the end of bez_2 such
-			 * that the vehicle finishes its smoothed path: ToDo: somehow it should not be allowed to change waypoints once the vehicle is close to current setpoint
-			*/
-			bool close_to_bez_2_end = ((_bez_2.getPt1() - _pos).length() < 2.0f);
-			bool case_2 = (_triplet_update && _on_bez_2 && close_to_bez_2_end);
-
-
-			/* do update if case1 or case 2 are true */
-			if(case_1 || case_2){
-				update_bezier_line(prev_sp, curr_sp);
-				_triplet_update = false;
 			}
 
-		}
-		/* compute smoothed corner */
-		else if(smoothed_corner){
-
-			/* case 1:
-			 * if we are in bez_1,
-			 * we can update once _triplet has updated (this could occur during flight)
-			 */
-			bool case_1 = (_triplet_update && !_on_bez_2);
-
-			/* case 2:
-			 * since the triplet updates before we finished bez_2,
-			 * we only want to update once close to the end of bez_2 such
-			 * that the vehicle finishes its smoothed path: ToDo: somehow it should not be allowed to change waypoints once the vehicle is close to current setpoint
-			*/
-			bool close_to_bez_2_end = ((_bez_2.getPt1() - _pos).length() < 5.0f);
-			bool case_2 = (_triplet_update && _on_bez_2 && close_to_bez_2_end);
-
-			/* do update if case1 or case2 are true */
-			if(case_1 || case_2){
-				update_bezier_corner(prev_sp, curr_sp, next_sp);
-				_triplet_update = false;
-			}
+			/* always saturate velocity feed forward */
+			_vel_ff =
+					_vel_ff.length() > _params.vel_cruise(0) ?
+							_vel_ff.normalized() * _params.vel_cruise(0) :
+							_vel_ff;
 
 		}
-
-		matrix::Vector3f acc_request; //this will be used once acceleraiton feedfoward is added
-
-		/* we are in bez_1 */
-		if( !_on_bez_2){
-			/* compute desired states */
-			_bez_1.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
-
-
-		/* we are in bez_2 */
-		}else{
-			/* compute desired states */
-			_bez_2.getStatesClosest(_pos_sp, _vel_ff, acc_request, _pos);
-
-		}
-
-		/* always saturate velocity feed forward */
-		_vel_ff = _vel_ff.length() > cruising_speed(0)  ? _vel_ff.normalized() * cruising_speed(0) : _vel_ff;
-
-
 		/* update yaw setpoint if needed */
 		if (_pos_sp_triplet.current.yawspeed_valid
 		    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET) {
