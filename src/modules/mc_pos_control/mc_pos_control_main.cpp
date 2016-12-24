@@ -704,11 +704,6 @@ MulticopterPositionControl::update_bezier_corner(const matrix::Vector3f &prev_sp
 	matrix::Vector3f ctrl_pt;
 	matrix::Vector3f next_pt;
 
-
-	/* desired velocity before and after corner turn */
-	matrix::Vector3f vel0 = (curr_sp - prev_sp).normalized() * _params.vel_cruise(0);
-	matrix::Vector3f vel1 = (next_sp - curr_sp).normalized() * _params.vel_cruise(0);
-
 	/* set bezier points in between current and previous, next and current */
 	prev_pt = (curr_sp - prev_sp) / 2.0 + prev_sp;
 	ctrl_pt = curr_sp;
@@ -720,7 +715,7 @@ MulticopterPositionControl::update_bezier_corner(const matrix::Vector3f &prev_sp
 	float duration = length / _params.vel_cruise(0);
 	_bez_2.setDuration(duration);
 
-	/* check acceleration: we dont wan to accelerate more than
+	/* check acceleration: we don't want to accelerate more than
 	 * vehicle capable of
 	 */
 	float max_acc = 0.5f;
@@ -736,7 +731,7 @@ MulticopterPositionControl::update_bezier_corner(const matrix::Vector3f &prev_sp
 	}
 
 	/* set bez_1 based on bez_2: we just go straight
-	 * with max speed. The speed will be saturated after computed
+	 * with max speed. The speed will be saturated
 	 * later in code
 	 */
 	_bez_1.setBezier(prev_sp, prev_sp, _bez_2.getPt0());
