@@ -62,26 +62,29 @@ BezierQuad::getBezier(matrix::Vector3f &pt0, matrix::Vector3f &ctrl, matrix::Vec
 	pt1 = _pt1;
 }
 
-void
-BezierQuad::getPoint(matrix::Vector3f &point, const float t){
-	point = _pt0 * (1 - t/_duration) * (1 - t/_duration) + _ctrl * 2.0f * (1- t/_duration)*t/_duration +   _pt1*t/_duration * t/_duration;
+matrix::Vector3f
+BezierQuad::getPoint(const float t){
+	matrix::Vector3f point = _pt0 * (1 - t/_duration) * (1 - t/_duration) + _ctrl * 2.0f * (1- t/_duration)*t/_duration +   _pt1*t/_duration * t/_duration;
+	return point;
 }
 
-void
-BezierQuad::getVelocity(matrix::Vector3f &vel, const float t){
-	vel = ((_ctrl - _pt0)*_duration + (_pt0 - _ctrl *2.0f + _pt1 )*t )*2.0f/(_duration*_duration);
+matrix::Vector3f
+BezierQuad::getVelocity(const float t){
+	matrix::Vector3f vel = ((_ctrl - _pt0)*_duration + (_pt0 - _ctrl *2.0f + _pt1 )*t )*2.0f/(_duration*_duration);
+	return vel;
 }
 
-void
-BezierQuad::getAcceleration(matrix::Vector3f &acc){
-	acc = (_pt0 - _ctrl * 2.0f + _pt1) * 2.0f/(_duration * _duration);
+matrix::Vector3f
+BezierQuad::getAcceleration(){
+	matrix::Vector3f acc = (_pt0 - _ctrl * 2.0f + _pt1) * 2.0f/(_duration * _duration);
+	return acc;
 }
 
 void
 BezierQuad::getStates(matrix::Vector3f &point, matrix::Vector3f &vel, matrix::Vector3f &acc, const float time){
-	getPoint(point, time);
-	getVelocity(vel, time);
-	getAcceleration(acc);
+	point = getPoint(time);
+	vel = getVelocity(time);
+	acc = getAcceleration();
 }
 
 
@@ -93,8 +96,7 @@ BezierQuad::getDistToClosestPoint(const matrix::Vector3f &pose){
 	float t = _goldenSectionSearch(pose);
 
 	/* get closest point */
-	matrix::Vector3f point;
-	getPoint(point, t);
+	matrix::Vector3f point = getPoint(t);
 
 	return (pose - point).length();
 
@@ -143,7 +145,7 @@ BezierQuad::getArcLength(const float resolution){
 
 	for (int i=1; i<n; i++){
 
-		getVelocity(y, h*i);
+		y = getVelocity(h*i);
 		if(i%2==1){
 			area += 4.0f * y.length();
 		}else{
@@ -151,8 +153,8 @@ BezierQuad::getArcLength(const float resolution){
 		}
 
 	}
-	getVelocity(v0, 0.0f);
-	getVelocity(vn, _duration);
+	v0 = getVelocity(0.0f);
+	vn = getVelocity(_duration);
 	y0 = v0.length();
 	yn = vn.length();
 
@@ -187,8 +189,7 @@ BezierQuad::_goldenSectionSearch(const matrix::Vector3f &pose){
 float
 BezierQuad::_getDistanceSquared(const float t, const matrix::Vector3f &pose){
 	/* get point on bezier */
-	matrix::Vector3f vec;
-	getPoint(vec, t);
+	matrix::Vector3f vec = getPoint(t);
 
 	/* get vector from point to pose */
 	vec = vec - pose;

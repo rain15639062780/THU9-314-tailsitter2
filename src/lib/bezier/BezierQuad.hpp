@@ -107,7 +107,7 @@ public:
 	/**
 	 * get point on bezier point corresponding to t
 	 */
-	void getPoint(matrix::Vector3f &point, const float t);
+	matrix::Vector3f getPoint(const float t);
 
 	/*
 	 * Distance to closest point given a position
@@ -117,12 +117,12 @@ public:
 	/*
 	 * get velocity on bezier corresponding to t
 	 */
-	void getVelocity(matrix::Vector3f &vel, const float t);
+	matrix::Vector3f getVelocity(const float t);
 
 	/*
 	 * get acceleration on bezier corresponding to t
 	 */
-	void getAcceleration(matrix::Vector3f &acc);
+	matrix::Vector3f getAcceleration();
 
 	/*
 	 * get states on bezier corresponding to t
