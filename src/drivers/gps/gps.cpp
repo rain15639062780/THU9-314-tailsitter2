@@ -660,8 +660,6 @@ GPS::task_main()
 	/* open the serial port */
 	_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
 
-	PX4_INFO("GPS fd: %d", _serial_fd);
-
 	if (_serial_fd < 0) {
 		PX4_ERR("GPS: failed to open serial port: %s err: %d", _port, errno);
 
@@ -726,8 +724,6 @@ GPS::task_main()
 			//no break
 			case GPS_DRIVER_MODE_UBX:
 				_helper = new GPSDriverUBX(_interface, &GPS::callback, this, &_report_gps_pos, _p_report_sat_info);
-
-				PX4_INFO("gps driver mode ubx");
 				break;
 
 			case GPS_DRIVER_MODE_MTK:
@@ -767,7 +763,6 @@ GPS::task_main()
 					_report_gps_pos.epv = 10000.0f;
 					_report_gps_pos.fix_type = 0;
 
-					PX4_INFO("gps pos: %.6f", (double)_report_gps_pos.vel_n_m_s);
 					publish();
 
 					/* GPS is obviously detected successfully, reset statistics */
@@ -855,9 +850,6 @@ GPS::task_main()
 
 		}
 	}
-
-	PX4_INFO("exiting");
-
 	orb_unsubscribe(_orb_inject_data_fd);
 
 	if (_dump_communication_pub) {

@@ -400,8 +400,6 @@ private:
 
 	void generate_attitude_setpoint(float dt);
 
-	void generate_attitude_setpoint(float dt);
-
 	/**
 	 * Shim for calling task_main from task_create.
 	 */
