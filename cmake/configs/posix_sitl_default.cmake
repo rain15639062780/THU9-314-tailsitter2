@@ -72,7 +72,7 @@ set(config_module_list
 	lib/tailsitter_recovery
 	lib/terrain_estimation
 	lib/version
-	lib/bezi
+	lib/bezier
 
 
 	examples/px4_simple_app
