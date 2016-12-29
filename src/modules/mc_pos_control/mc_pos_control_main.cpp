@@ -1707,10 +1707,7 @@ void MulticopterPositionControl::control_auto(float dt)
 			/* if all setpoints valid
 			 * then do a smoothed corner
 			 */
-			bool smoothed_corner = (current_setpoint_valid
-					&& previous_setpoint_valid && next_setpoint_valid
-					&& (_pos_sp_triplet.current.type
-							!= position_setpoint_s::SETPOINT_TYPE_IDLE));
+			bool smoothed_corner = (previous_setpoint_valid && next_setpoint_valid);
 
 			/* do takeoff */
 			if (takeoff) {
@@ -1742,7 +1739,10 @@ void MulticopterPositionControl::control_auto(float dt)
 				/* do update if case1 or case 2 are true */
 				if (case_1 || case_2) {
 					update_bezier_line(prev_sp, curr_sp);
+
+					/* since just updated, we are again on bez_1 */
 					_triplet_update = false;
+					_on_bez_2 = false;
 				}
 
 			}
@@ -1768,7 +1768,10 @@ void MulticopterPositionControl::control_auto(float dt)
 				/* do update if case1 or case2 are true */
 				if (case_1 || case_2) {
 					update_bezier_corner(prev_sp, curr_sp, next_sp);
+
+					/* since just updated, we are again on bez_1 */
 					_triplet_update = false;
+					_on_bez_2 = false;
 				}
 
 			}
