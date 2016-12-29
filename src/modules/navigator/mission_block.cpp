@@ -288,24 +288,24 @@ MissionBlock::is_mission_item_reached()
 				}
 			}
 		} else {
-			/* for normal mission items used their acceptance radius */
-			float mission_acceptance_radius = _navigator->get_acceptance_radius(_mission_item.acceptance_radius);
+			/* for normal mission items used their acceptance radius or corner bisection */
 
-			/* if set to zero use the default instead */
-			if (mission_acceptance_radius < NAV_EPSILON_POSITION) {
-				mission_acceptance_radius = _navigator->get_acceptance_radius();
-			}
+			/* corner
+			* currently we only do that for none vtol and rotary wing */
+			bool quad = _navigator->get_vstatus()->is_rotary_wing && !_navigator->get_vstatus()->is_vtol;
+			bool corner = _navigator->get_position_setpoint_triplet()->next.valid && _navigator->get_position_setpoint_triplet()->previous.valid;
 
-			if (dist >= 0.0f && dist <= mission_acceptance_radius
-				&& dist_z <= _navigator->get_altitude_acceptance_radius()) {
-				_waypoint_position_reached = true;
-			}
+			if(corner && quad){
 
-
-			/* we have a corner */
-			if(_navigator->get_position_setpoint_triplet()->next.valid && _navigator->get_position_setpoint_triplet()->previous.valid){
+				/* line0 goes from previous setpoint to current setpoint
+				 * line1 goes from current setpoint to next setpoint
+				 */
 				struct crosstrack_error_s line0;
 				struct crosstrack_error_s line1;
+
+				/* in order to know if we passed waypoint,
+				 * we look at the distance to line0 and line1.
+				 */
 				get_distance_to_line(&line0,
 						_navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
 						_navigator->get_position_setpoint_triplet()->previous.lat, _navigator->get_position_setpoint_triplet()->previous.lon,
@@ -315,19 +315,38 @@ MissionBlock::is_mission_item_reached()
 						_navigator->get_position_setpoint_triplet()->current.lat, _navigator->get_position_setpoint_triplet()->current.lon,
 						_navigator->get_position_setpoint_triplet()->next.lat, _navigator->get_position_setpoint_triplet()->next.lon);
 
+				/* as an additional criteria to know if we passed is by
+				 * looking at distance to current setpoint and next setpoint.
+				 * This prevents a too early switching to next_setpoint
+				 */
 				float dist_next;
-				float dist_xy_next;
-				float dist_z_next;
+				float dist_xy_next; //just dummy
+				float dist_z_next; //just dummy
 				dist_next = get_distance_to_point_global_wgs84(_navigator->get_position_setpoint_triplet()->next.lat,_navigator->get_position_setpoint_triplet()->next.lon, altitude_amsl,
 									_navigator->get_global_position()->lat,
 									_navigator->get_global_position()->lon,
 									_navigator->get_global_position()->alt,
 									&dist_xy_next, &dist_z_next);
 
-				if(( fabsf(line0.distance) > fabsf(line1.distance) ) && (fabsf(dist) < fabsf(dist_next))){
+				/* pass */
+				bool passed = ( fabsf(line0.distance) > fabsf(line1.distance) ) && (fabsf(dist) < fabsf(dist_next));
+				if(passed){
 					_waypoint_position_reached = true;
 				}
 
+			}else{
+
+				float mission_acceptance_radius = _navigator->get_acceptance_radius(_mission_item.acceptance_radius);
+
+				/* if set to zero use the default instead */
+				if (mission_acceptance_radius < NAV_EPSILON_POSITION) {
+					mission_acceptance_radius = _navigator->get_acceptance_radius();
+				}
+
+				if (dist >= 0.0f && dist <= mission_acceptance_radius
+					&& dist_z <= _navigator->get_altitude_acceptance_radius()) {
+					_waypoint_position_reached = true;
+				}
 			}
 
 		}

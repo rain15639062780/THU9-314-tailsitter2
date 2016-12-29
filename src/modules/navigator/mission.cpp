@@ -1009,15 +1009,23 @@ Mission::heading_sp_update()
 	}
 
 	/* set yaw angle for the waypoint if a loiter time has been specified */
-	if (_waypoint_position_reached && Navigator::get_time_inside(_mission_item) > FLT_EPSILON) {
+	bool loiter_time_reached = _waypoint_position_reached && Navigator::get_time_inside(_mission_item) > FLT_EPSILON;
+
+	/* previous bool not true and waypoint and rotary wing and not vtol, we just want to pass by the waypoint
+	 * with heading along desired velocity*/
+	bool pass_waypoint =  _mission_item.nav_cmd == NAV_CMD_WAYPOINT && _navigator->get_vstatus()->is_rotary_wing && !_navigator->get_vstatus()->is_vtol;
+
+	if (loiter_time_reached) {
 		// XXX: should actually be param4 from mission item
 		// at the moment it will just keep the heading it has
 		//_mission_item.yaw = _on_arrival_yaw;
 		//pos_sp_triplet->current.yaw = _mission_item.yaw;
 
-	/* if waypoint and rotary wing, we just want to pass by the waypoint */
-	}else if(_mission_item.nav_cmd == NAV_CMD_WAYPOINT && _navigator->get_vstatus()->is_rotary_wing){
+	}else if(pass_waypoint){
+		/* desired velocity setpoint */
 		math::Vector<3> vec(vel_sp->vx, vel_sp->vy, vel_sp->vz);
+
+		/* desired yaw setpoint based on desired velocity setpoint */
 		_mission_item.yaw = get_yaw_along_vec(vec);
 		pos_sp_triplet->current.yaw = _mission_item.yaw;
 
