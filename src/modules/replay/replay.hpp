@@ -43,6 +43,7 @@
 
 #include <uORB/uORBTopics.h>
 #include <uORB/topics/ekf2_timestamps.h>
+#include <uORB/topics/sensor_combined.h>
 
 namespace px4
 {
@@ -267,6 +268,8 @@ private:
 	uint16_t _airspeed_msg_id = msg_id_invalid;
 	uint16_t _vehicle_vision_position_msg_id = msg_id_invalid;
 	uint16_t _vehicle_vision_attitude_msg_id = msg_id_invalid;
+
+	sensor_combined_s _last_sensor_combined{}; ///< last published sensor_combined topic
 
 	int _topic_counter = 0;
 };

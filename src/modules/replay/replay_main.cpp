@@ -63,7 +63,6 @@
 #include <uORB/topics/airspeed.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/optical_flow.h>
-#include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_gps_position.h>
 #include <uORB/topics/vehicle_land_detected.h>
@@ -914,21 +913,88 @@ bool ReplayEkf2::publishEkf2Topics(const ekf2_timestamps_s &ekf2_timestamps, std
 		return false;
 	}
 
+	// sensor_combined: publish this last because ekf2 is polling on this
 	Subscription &sensors_sub = _subscriptions[_sensors_combined_msg_id];
-	if (findNextTimestamp(ekf2_timestamps.timestamp / 100, _sensors_combined_msg_id, replay_file)) {
+
+	// check for a dropout: if there's a gap of >10ms, we interpolate the sensor data in between,
+	// so that ekf2 works correctly. This is only an approximation and cannot make up for arbitrary
+	// length drops. We try to give our best here, inform the user and let him decide if the results
+	// are usable.
+	const int sensors_delta_t = (ekf2_timestamps.timestamp - _last_sensor_combined.timestamp) / 1000;
+
+	if (_last_sensor_combined.timestamp > 0 && sensors_delta_t > 10) {
+
+		PX4_WARN("sensor_combined drop of %i ms. Interpolating data in between", sensors_delta_t);
+
+		// find next timestamp. If we don't find it (returns false), we still use that because it's
+		// the next closest match
+		findNextTimestamp(ekf2_timestamps.timestamp / 100, _sensors_combined_msg_id, replay_file);
+
+		if (!sensors_sub.orb_meta) {
+			return false;
+		}
+
+		sensor_combined_s sensor_combined;
 		readTopicDataToBuffer(sensors_sub, replay_file);
-		publishTopic(sensors_sub, _read_buffer.data());
+		memcpy(&sensor_combined, _read_buffer.data(), sizeof(sensor_combined_s));
+
+		// do the interpolation, using a fixed delta t
+		const int dt = 4000;
+		const int num_steps = (sensor_combined.timestamp - _last_sensor_combined.timestamp) / dt - 1; // only steps in between
+		sensor_combined_s sensor_combined_cur;
+		sensor_combined_cur.accelerometer_integral_dt = (float)dt / 1e6f;
+		sensor_combined_cur.gyro_integral_dt = (float)dt / 1e6f;
+		sensor_combined_cur.accelerometer_timestamp_relative = 0;
+		sensor_combined_cur.magnetometer_timestamp_relative = 0;
+		sensor_combined_cur.baro_timestamp_relative = 0;
+		sensor_combined_cur.timestamp = _last_sensor_combined.timestamp;
+
+		for (int i = 0; i < num_steps; ++i) {
+			sensor_combined_cur.timestamp += dt;
+			float step = (float)(i + 1) / (num_steps + 1);
+
+			auto lerp = [](float a, float b, float s) { // TODO: is there a method in mathlib?
+				return a * (1.f - s) + b * s;
+			};
+
+			for (int k = 0; k < 3; ++k) {
+				sensor_combined_cur.gyro_rad[k] = lerp(_last_sensor_combined.gyro_rad[k],
+								       sensor_combined.gyro_rad[k], step);
+				sensor_combined_cur.accelerometer_m_s2[k] = lerp(_last_sensor_combined.accelerometer_m_s2[k],
+						sensor_combined.accelerometer_m_s2[k], step);
+				sensor_combined_cur.magnetometer_ga[k] = lerp(_last_sensor_combined.magnetometer_ga[k],
+						sensor_combined.magnetometer_ga[k], step);
+			}
+
+			sensor_combined_cur.baro_alt_meter = lerp(_last_sensor_combined.baro_alt_meter,
+							     sensor_combined.baro_alt_meter, step);
+			sensor_combined_cur.baro_temp_celcius = lerp(_last_sensor_combined.baro_temp_celcius,
+								sensor_combined.baro_temp_celcius, step);
+
+			publishTopic(sensors_sub, &sensor_combined_cur);
+			waitForEkf2Reply();
+		}
+
+		// publish the next topic
+		memcpy(&_last_sensor_combined, &sensor_combined, sizeof(sensor_combined_s));
+		publishTopic(sensors_sub, &sensor_combined);
+
 	} else {
-		// we should publish a topic, just publish the same again
-		readTopicDataToBuffer(_subscriptions[_sensors_combined_msg_id], replay_file);
-		publishTopic(_subscriptions[_sensors_combined_msg_id], _read_buffer.data());
-		if (sensors_sub.orb_meta) {
-			// we should publish a topic, just publish the same again
+
+		if (findNextTimestamp(ekf2_timestamps.timestamp / 100, _sensors_combined_msg_id, replay_file)) {
 			readTopicDataToBuffer(sensors_sub, replay_file);
+			memcpy(&_last_sensor_combined, _read_buffer.data(), sizeof(sensor_combined_s));
 			publishTopic(sensors_sub, _read_buffer.data());
 
 		} else {
-			return false; // read past end of file
+			if (sensors_sub.orb_meta) {
+				// we should publish a topic, just publish the same again
+				readTopicDataToBuffer(sensors_sub, replay_file);
+				publishTopic(sensors_sub, _read_buffer.data());
+
+			} else {
+				return false; // read past end of file
+			}
 		}
 	}
 
