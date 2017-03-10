@@ -816,30 +816,12 @@ bool ReplayEkf2::handleTopicUpdate(Subscription &sub, void *data, std::ifstream 
 			return false;
 		}
 
-		px4_pollfd_struct_t fds[1];
-		fds[0].fd = _vehicle_attitude_sub;
-		fds[0].events = POLLIN;
-		// wait for a response from the estimator
-		int pret = px4_poll(fds, 1, 1000);
+		waitForEkf2Reply();
 
 		// introduce some breaks to make sure the logger can keep up
 		if (++_topic_counter == 50) {
 			usleep(1000);
 			_topic_counter = 0;
-		}
-
-		if (pret == 0) {
-			PX4_WARN("poll timeout");
-
-		} else if (pret < 0) {
-			PX4_ERR("poll failed (%i)", pret);
-
-		} else {
-			if (fds[0].revents & POLLIN) {
-				vehicle_attitude_s att;
-				// need to to an orb_copy so that poll will not return immediately
-				orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &att);
-			}
 		}
 
 		return true;
@@ -849,6 +831,29 @@ bool ReplayEkf2::handleTopicUpdate(Subscription &sub, void *data, std::ifstream 
 	} // else: do not publish
 
 	return false;
+}
+
+void ReplayEkf2::waitForEkf2Reply()
+{
+	px4_pollfd_struct_t fds[1];
+	fds[0].fd = _vehicle_attitude_sub;
+	fds[0].events = POLLIN;
+	// wait for a response from the estimator
+	int pret = px4_poll(fds, 1, 1000);
+
+	if (pret == 0) {
+		PX4_WARN("poll timeout");
+
+	} else if (pret < 0) {
+		PX4_ERR("poll failed (%i)", pret);
+
+	} else {
+		if (fds[0].revents & POLLIN) {
+			vehicle_attitude_s att;
+			// need to to an orb_copy so that poll will not return immediately
+			orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &att);
+		}
+	}
 }
 
 void ReplayEkf2::onSubscriptionAdded(Subscription &sub, uint16_t msg_id)
@@ -887,7 +892,11 @@ bool ReplayEkf2::publishEkf2Topics(const ekf2_timestamps_s &ekf2_timestamps, std
 		if (timestamp_relative != ekf2_timestamps_s::RELATIVE_TIMESTAMP_INVALID) {
 			// timestamp_relative is already given in 0.1 ms
 			uint64_t t = timestamp_relative + ekf2_timestamps.timestamp / 100; // in 0.1 ms
-			findTimestampAndPublish(t, msg_id, replay_file);
+
+			if (findNextTimestamp(t, msg_id, replay_file)) {
+				readTopicDataToBuffer(_subscriptions[msg_id], replay_file);
+				publishTopic(_subscriptions[msg_id], _read_buffer.data());
+			}
 		}
 	};
 	handle_sensor_publication(ekf2_timestamps.gps_timestamp_rel, _gps_msg_id); // gps
@@ -899,19 +908,27 @@ bool ReplayEkf2::publishEkf2Topics(const ekf2_timestamps_s &ekf2_timestamps, std
 	handle_sensor_publication(ekf2_timestamps.vision_attitude_timestamp_rel,
 				  _vehicle_vision_attitude_msg_id); // vision attitude
 
-	// sensor_combined: publish last because ekf2 is polling on this
-	if (!findTimestampAndPublish(ekf2_timestamps.timestamp / 100, _sensors_combined_msg_id, replay_file)) {
-		if (_sensors_combined_msg_id == msg_id_invalid) {
-			// subscription not found yet or sensor_combined not contained in log
-			return false;
 
-		} else if (!_subscriptions[_sensors_combined_msg_id].orb_meta) {
-			return false; // read past end of file
+	if (_sensors_combined_msg_id == msg_id_invalid) {
+		// subscription not found yet or sensor_combined not contained in log
+		return false;
+	}
+
+	Subscription &sensors_sub = _subscriptions[_sensors_combined_msg_id];
+	if (findNextTimestamp(ekf2_timestamps.timestamp / 100, _sensors_combined_msg_id, replay_file)) {
+		readTopicDataToBuffer(sensors_sub, replay_file);
+		publishTopic(sensors_sub, _read_buffer.data());
+	} else {
+		// we should publish a topic, just publish the same again
+		readTopicDataToBuffer(_subscriptions[_sensors_combined_msg_id], replay_file);
+		publishTopic(_subscriptions[_sensors_combined_msg_id], _read_buffer.data());
+		if (sensors_sub.orb_meta) {
+			// we should publish a topic, just publish the same again
+			readTopicDataToBuffer(sensors_sub, replay_file);
+			publishTopic(sensors_sub, _read_buffer.data());
 
 		} else {
-			// we should publish a topic, just publish the same again
-			readTopicDataToBuffer(_subscriptions[_sensors_combined_msg_id], replay_file);
-			publishTopic(_subscriptions[_sensors_combined_msg_id], _read_buffer.data());
+			return false; // read past end of file
 		}
 	}
 
@@ -919,7 +936,7 @@ bool ReplayEkf2::publishEkf2Topics(const ekf2_timestamps_s &ekf2_timestamps, std
 
 }
 
-bool ReplayEkf2::findTimestampAndPublish(uint64_t timestamp, uint16_t msg_id, std::ifstream &replay_file)
+bool ReplayEkf2::findNextTimestamp(uint64_t timestamp, uint16_t msg_id, std::ifstream &replay_file)
 {
 	if (msg_id == msg_id_invalid) {
 		// could happen if a topic is not logged
@@ -944,8 +961,6 @@ bool ReplayEkf2::findTimestampAndPublish(uint64_t timestamp, uint16_t msg_id, st
 		return false;
 	}
 
-	readTopicDataToBuffer(sub, replay_file);
-	publishTopic(sub, _read_buffer.data());
 	return true;
 }
 

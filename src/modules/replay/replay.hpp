@@ -243,13 +243,18 @@ private:
 	bool publishEkf2Topics(const ekf2_timestamps_s &ekf2_timestamps, std::ifstream &replay_file);
 
 	/**
-	 * find the next message for a subscription that matches a given timestamp and publish it
+	 * find the next message for a subscription that matches a given timestamp
 	 * @param timestamp in 0.1 ms
 	 * @param msg_id
 	 * @param replay_file file currently replayed (file seek position should be considered arbitrary after this call)
 	 * @return true if timestamp found and published
 	 */
-	bool findTimestampAndPublish(uint64_t timestamp, uint16_t msg_id, std::ifstream &replay_file);
+	bool findNextTimestamp(uint64_t timestamp, uint16_t msg_id, std::ifstream &replay_file);
+
+	/**
+	 * wait for ekf2 to publish an attitude topic
+	 */
+	void waitForEkf2Reply();
 
 	int _vehicle_attitude_sub = -1;
 
