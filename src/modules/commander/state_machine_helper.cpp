@@ -680,7 +680,7 @@ bool set_nav_state(struct vehicle_status_s *status,
 			/* datalink loss enabled:
 			 * check for datalink lost: this should always trigger RTGS */
 
-		} else if (data_link_loss_act_configured && status->data_link_lost) {
+		} else if (data_link_loss_act_configured && status->data_link_lost && is_armed) {
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_datalink);
 
 			set_data_link_loss_nav_state(status, armed, status_flags, data_link_loss_act);
@@ -690,7 +690,7 @@ bool set_nav_state(struct vehicle_status_s *status,
 			 * or all links are lost after the mission finishes in air: this should always trigger RCRECOVER */
 
 		} else if (!data_link_loss_act_configured && status->rc_signal_lost && status->data_link_lost && !landed
-			   && mission_finished) {
+			   && mission_finished && is_armed) {
 
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_datalink);
 
@@ -710,20 +710,20 @@ bool set_nav_state(struct vehicle_status_s *status,
 		if (status->engine_failure) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
-		} else if (status_flags->gps_failure) {
+		} else if (status_flags->gps_failure && is_armed) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_DESCEND;
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_gps);
 
 			/* also go into failsafe if just datalink is lost, and we're actually in air */
 
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_datalink);
-		} else if (status->data_link_lost && data_link_loss_act_configured && !landed) {
+		} else if (status->data_link_lost && data_link_loss_act_configured && !landed && is_armed) {
 
 			set_data_link_loss_nav_state(status, armed, status_flags, data_link_loss_act);
 
 			/* go into failsafe if RC is lost and datalink loss is not set up and rc loss is not DISABLED */
 
-		} else if (rc_lost && !data_link_loss_act_configured) {
+		} else if (rc_lost && !data_link_loss_act_configured && is_armed) {
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, reason_no_rc);
 
 			set_rc_loss_nav_state(status, armed, status_flags, rc_loss_act);
