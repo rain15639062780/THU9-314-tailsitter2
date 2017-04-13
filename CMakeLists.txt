@@ -344,6 +344,7 @@ px4_add_git_submodule(TARGET git_mavlink PATH "mavlink/include/mavlink/v1.0")
 px4_add_git_submodule(TARGET git_mavlink2 PATH "mavlink/include/mavlink/v2.0")
 px4_add_git_submodule(TARGET git_nuttx PATH "NuttX")
 px4_add_git_submodule(TARGET git_uavcan PATH "src/modules/uavcan/libuavcan")
+px4_add_git_submodule(TARGET git_hashmap PATH "src/lib/HashMap")
 
 add_custom_target(submodule_clean
 	WORKING_DIRECTORY ${PX4_SOURCE_DIR}

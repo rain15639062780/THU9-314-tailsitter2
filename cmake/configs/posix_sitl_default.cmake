@@ -76,6 +76,7 @@ set(config_module_list
 	modules/ekf2_replay
 	modules/local_position_estimator
 	modules/position_estimator_inav
+	modules/iekf
 
 	#
 	# Vehicle Control
@@ -120,6 +121,7 @@ set(config_module_list
 	lib/tailsitter_recovery
 	lib/terrain_estimation
 	lib/version
+	lib/ros
 
 	#
 	# Platform
@@ -179,7 +181,7 @@ set(config_extra_builtin_cmds
 # for the config posix_sitl_efk2 and set again, explicitly, for posix_sitl_lpe,
 # which are based on posix_sitl_default.
 set(config_sitl_rcS_dir
-	posix-configs/SITL/init/ekf2
+	posix-configs/SITL/init/iekf
 	CACHE INTERNAL "init script dir for sitl"
 	)
 

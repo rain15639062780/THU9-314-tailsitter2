@@ -78,6 +78,7 @@
 #include <uORB/topics/gps_inject_data.h>
 #include <uORB/topics/control_state.h>
 #include <uORB/topics/collision_report.h>
+#include <uORB/topics/ekf2_innovations.h>
 
 
 #include "mavlink_ftp.h"
