@@ -346,11 +346,6 @@ private:
 
 	void warn_rate_limited(const char *str);
 
-	/*
-	 * limit vel horizontally when close to target
-	 */
-	void limit_vel_xy_gradually();
-
 	/**
 	 * Shim for calling task_main from task_create.
 	 */
@@ -1180,7 +1175,7 @@ MulticopterPositionControl::control_offboard(float dt)
 					_vel_sp(1) = sinf(_yaw) * _pos_sp_triplet.current.vx + cosf(_yaw) * _pos_sp_triplet.current.vy;
 
 				} else {
-					PX4_WARN("Unknown velocity offboard coordinate frame");
+					warn_rate_limited("Unknown velocity offboard coordinate frame");
 				}
 
 				_run_pos_control = false;
@@ -1635,7 +1630,7 @@ void MulticopterPositionControl::control_auto(float dt)
 		if (!(PX4_ISFINITE(_pos_sp(0)) && PX4_ISFINITE(_pos_sp(1)) &&
 		      PX4_ISFINITE(_pos_sp(2)))) {
 
-			PX4_WARN("Auto: Position setpoint not finite");
+			warn_rate_limited("Auto: Position setpoint not finite");
 			_pos_sp = _curr_pos_sp;
 		}
 
