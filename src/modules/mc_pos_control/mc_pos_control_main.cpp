@@ -266,6 +266,7 @@ private:
 	float _vel_z_lp;
 	float _acc_z_lp;
 	float _vel_max_xy;  /**< equal to vel_max except in auto mode when close to target */
+	float _vel_max_z_down;  /**< equal to _params.vel_max_down as default */
 
 	bool _in_takeoff; /**< flag for smooth velocity setpoint takeoff ramp */
 	float _takeoff_vel_limit; /**< velocity limit value which gets ramped up */
@@ -440,6 +441,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_vel_z_lp(0),
 	_acc_z_lp(0),
 	_vel_max_xy(0.0f),
+	_vel_max_z_down(0.0f),
 	_takeoff_vel_limit(0.0f),
 	_z_reset_counter(0),
 	_xy_reset_counter(0),
@@ -933,14 +935,14 @@ MulticopterPositionControl::slow_land_gradual_velocity_limit()
 	 * for now we use the home altitude and assume that we want to land on a similar absolute altitude.
 	 */
 	float altitude_above_home = -_pos(2) + _home_pos.z;
-	float vel_limit = _params.vel_max_down;
+	float vel_limit = _vel_max_z_down;
 
 	if (altitude_above_home < _params.slow_land_alt2) {
 		vel_limit = _params.land_speed;
 
 	} else if (altitude_above_home < _params.slow_land_alt1) {
 		/* linear function between the two altitudes */
-		float a = (_params.vel_max_down - _params.land_speed) / (_params.slow_land_alt1 - _params.slow_land_alt2);
+		float a = (_vel_max_z_down - _params.land_speed) / (_params.slow_land_alt1 - _params.slow_land_alt2);
 		float b = _params.land_speed - a * _params.slow_land_alt2;
 		vel_limit =  a * altitude_above_home + b;
 	}
@@ -999,7 +1001,7 @@ MulticopterPositionControl::control_manual(float dt)
 
 	/* prepare cruise speed (m/s) vector to scale the velocity setpoint */
 	float vel_mag = (_velocity_hor_manual.get() < _vel_max_xy) ? _velocity_hor_manual.get() : _vel_max_xy;
-	matrix::Vector3f vel_cruise_scale(vel_mag, vel_mag, (man_vel_sp(2) > 0.0f) ? _params.vel_max_down : _params.vel_max_up);
+	matrix::Vector3f vel_cruise_scale(vel_mag, vel_mag, (man_vel_sp(2) > 0.0f) ? _vel_max_z_down : _params.vel_max_up);
 
 	/* setpoint in NED frame and scaled to cruise velocity */
 	man_vel_sp = matrix::Dcmf(matrix::Eulerf(0.0f, 0.0f, yaw_input_fame)) * man_vel_sp.emult(vel_cruise_scale);
@@ -1168,13 +1170,6 @@ MulticopterPositionControl::control_non_manual(float dt)
 
 		_vel_sp(0) = _pos_sp_triplet.current.vx;
 		_vel_sp(1) = _pos_sp_triplet.current.vy;
-	}
-
-	/* use constant descend rate when landing, ignore altitude setpoint */
-	if (_pos_sp_triplet.current.valid
-	    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
-		_vel_sp(2) = _params.land_speed;
-		_run_alt_control = false;
 	}
 
 	if (_pos_sp_triplet.current.valid
@@ -1458,7 +1453,7 @@ void MulticopterPositionControl::control_auto(float dt)
 	    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
 
 		float cruising_speed_xy = get_cruising_speed_xy();
-		float cruising_speed_z = (_curr_pos_sp(2) > _pos(2)) ? _params.vel_max_down : _params.vel_max_up;
+		float cruising_speed_z = (_curr_pos_sp(2) > _pos(2)) ? _vel_max_z_down : _params.vel_max_up;
 
 		/* scaled space: 1 == position error resulting max allowed speed */
 		math::Vector<3> cruising_speed(cruising_speed_xy, cruising_speed_xy, cruising_speed_z);
@@ -1553,6 +1548,12 @@ void MulticopterPositionControl::control_auto(float dt)
 
 			/* set max velocity to cruise */
 			_vel_max_xy = cruising_speed(0);
+
+			if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
+
+				/* limit descend rate when landing */
+				_vel_max_z_down = _params.land_speed;
+			}
 		}
 
 		/* update yaw setpoint if needed */
@@ -1773,7 +1774,7 @@ MulticopterPositionControl::calculate_velocity_setpoint(float dt)
 		_vel_sp(1) = _vel_sp(1) * _vel_max_xy / vel_norm_xy;
 	}
 
-	_vel_sp(2) = math::max(_vel_sp(2), -_params.vel_max_up);
+	_vel_sp(2) = math::constrain(_vel_sp(2), -_params.vel_max_up, _vel_max_z_down);
 
 	/* special velocity setpoint limitation for smooth takeoff */
 	if (_in_takeoff) {
@@ -2311,6 +2312,7 @@ MulticopterPositionControl::task_main()
 
 		/* set default max velocity in xy to vel_max */
 		_vel_max_xy = _params.vel_max_xy;
+		_vel_max_z_down = _params.vel_max_down;
 
 		if (_control_mode.flag_armed && !was_armed) {
 			/* reset setpoints and integrals on arming */
