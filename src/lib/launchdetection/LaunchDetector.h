@@ -52,7 +52,7 @@ class __EXPORT LaunchDetector : public control::SuperBlock
 {
 public:
 	LaunchDetector();
-	~LaunchDetector() override;
+	~LaunchDetector();
 
 	LaunchDetector(const LaunchDetector &) = delete;
 	LaunchDetector operator=(const LaunchDetector &) = delete;

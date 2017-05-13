@@ -553,11 +553,10 @@ public:
 		phase = 1 - phase;
 		return X * getStdDev() + getMean();
 	}
-// accessors
+
 	float getMean() { return _mean.get(); }
 	float getStdDev() { return _stdDev.get(); }
 private:
-// attributes
 	control::BlockParamFloat _mean;
 	control::BlockParamFloat _stdDev;
 };
@@ -567,8 +566,7 @@ class __EXPORT BlockStats: public Block
 {
 public:
 // methods
-	BlockStats(SuperBlock *parent,
-		   const char *name) :
+	BlockStats(SuperBlock *parent, const char *name) :
 		Block(parent, name),
 		_sum(),
 		_sumSq(),
@@ -588,19 +586,21 @@ public:
 		_sumSq.setZero();
 		_count = 0;
 	}
-// accessors
+
 	size_t getCount() { return _count; }
+
 	matrix::Vector<Type, M> getMean() { return _sum / _count; }
+
 	matrix::Vector<Type, M> getVar()
 	{
 		return (_sumSq - _sum.emult(_sum) / _count) / _count;
 	}
+
 	matrix::Vector<Type, M> getStdDev()
 	{
 		return getVar().pow(0.5);
 	}
 private:
-// attributes
 	matrix::Vector<Type, M> _sum;
 	matrix::Vector<Type, M> _sumSq;
 	size_t _count;
@@ -611,14 +611,14 @@ class __EXPORT BlockDelay: public Block
 {
 public:
 // methods
-	BlockDelay(SuperBlock *parent,
-		   const char *name) :
+	BlockDelay(SuperBlock *parent, const char *name) :
 		Block(parent, name),
 		_h(),
 		_index(0),
 		_delay(-1)
 	{
 	};
+
 	virtual ~BlockDelay() {};
 	matrix::Matrix<Type, M, N> update(const matrix::Matrix<Type, M, N> &u)
 	{

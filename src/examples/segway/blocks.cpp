@@ -99,4 +99,3 @@ BlockUorbEnabledAutopilot::BlockUorbEnabledAutopilot(SuperBlock *parent, const c
 }
 
 }
-

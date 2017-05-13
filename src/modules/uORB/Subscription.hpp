@@ -40,7 +40,6 @@
 
 #include <uORB/uORB.h>
 #include <containers/List.hpp>
-#include <systemlib/err.h>
 
 namespace uORB
 {
@@ -62,8 +61,7 @@ public:
 	 * @param instance The instance for multi sub.
 	 */
 	SubscriptionBase(const struct orb_metadata *meta, unsigned interval = 0, int instance = 0);
-
-	virtual ~SubscriptionBase();
+	~SubscriptionBase();
 
 	// disallow copy, assignment
 	SubscriptionBase(const SubscriptionBase &other) = delete;
@@ -153,8 +151,7 @@ public:
 			      List<SubscriptionNode *> *list = nullptr);
 
 	Subscription() = default;
-
-	~Subscription() override = default;
+	~Subscription() = default;
 
 	// disable copying, assignment, move
 	Subscription(const Subscription &) = delete;

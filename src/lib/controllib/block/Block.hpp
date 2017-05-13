@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2012 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2012 - 2017 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,111 +32,63 @@
  ****************************************************************************/
 
 /**
- * @file Block.h
+ * @file Block.hpp
  *
  * Controller library code
  */
 
 #pragma once
 
-#include <stdint.h>
-#include <inttypes.h>
-
 #include <containers/List.hpp>
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <controllib/block/BlockParam.hpp>
 
+#define SuperBlock Block
 namespace control
 {
 
-static const uint16_t maxChildrenPerBlock = 100;
-static const uint16_t maxParamsPerBlock = 100;
-static const uint16_t maxSubscriptionsPerBlock = 100;
-static const uint16_t maxPublicationsPerBlock = 100;
-static const uint8_t blockNameLengthMax = 40;
+static constexpr uint8_t maxChildrenPerBlock = 100;
+static constexpr uint8_t maxParamsPerBlock = 100;
+static constexpr uint8_t maxSubscriptionsPerBlock = 100;
+static constexpr uint8_t maxPublicationsPerBlock = 100;
+static constexpr uint8_t blockNameLengthMax = 40;
 
 // forward declaration
 class BlockParamBase;
-class SuperBlock;
 
-/**
- */
-class __EXPORT Block :
-	public ListNode<Block *>
+class __EXPORT Block : public ListNode<Block *>
 {
 public:
-	friend class BlockParamBase;
-// methods
-	Block(SuperBlock *parent, const char *name);
+	Block(SuperBlock *parent, const char *name) : _name(name) {}
+
+	~Block() = default;
+
+	Block(const control::Block &) = delete;
+	Block operator=(const control::Block &) = delete;
+
 	void getName(char *name, size_t n);
-	virtual ~Block() {};
-	virtual void updateParams();
-	virtual void updateSubscriptions();
-	virtual void updatePublications();
-	virtual void setDt(float dt) { _dt = dt; }
-// accessors
-	float getDt() { return _dt; }
-protected:
-// accessors
-	SuperBlock *getParent() { return _parent; }
+
+	void updateParams();
+	void updateSubscriptions();
+	void updatePublications();
+
+	void setDt(float dt) { _dt = dt; }
+	float getDt() const { return _dt; }
+
 	List<uORB::SubscriptionNode *> &getSubscriptions() { return _subscriptions; }
 	List<uORB::PublicationNode *> &getPublications() { return _publications; }
 	List<BlockParamBase *> &getParams() { return _params; }
-// attributes
+
+private:
+
 	const char *_name;
-	SuperBlock *_parent;
-	float _dt;
+
+	float _dt{0.0f};
+
 	List<uORB::SubscriptionNode *> _subscriptions;
 	List<uORB::PublicationNode *> _publications;
 	List<BlockParamBase *> _params;
-
-private:
-	/* this class has pointer data members and should not be copied (private constructor) */
-	Block(const control::Block &);
-	Block operator=(const control::Block &);
 };
-
-class __EXPORT SuperBlock :
-	public Block
-{
-public:
-	friend class Block;
-// methods
-	SuperBlock(SuperBlock *parent, const char *name) :
-		Block(parent, name),
-		_children()
-	{
-	}
-	virtual ~SuperBlock() {};
-	virtual void setDt(float dt);
-	virtual void updateParams()
-	{
-		Block::updateParams();
-
-		if (getChildren().getHead() != NULL) { updateChildParams(); }
-	}
-	virtual void updateSubscriptions()
-	{
-		Block::updateSubscriptions();
-
-		if (getChildren().getHead() != NULL) { updateChildSubscriptions(); }
-	}
-	virtual void updatePublications()
-	{
-		Block::updatePublications();
-
-		if (getChildren().getHead() != NULL) { updateChildPublications(); }
-	}
-protected:
-// methods
-	List<Block *> &getChildren() { return _children; }
-	void updateChildParams();
-	void updateChildSubscriptions();
-	void updateChildPublications();
-// attributes
-	List<Block *> _children;
-};
-
 
 } // namespace control

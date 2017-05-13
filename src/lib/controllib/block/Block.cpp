@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2012 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2012 - 2017 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,8 +38,6 @@
  */
 
 #include <math.h>
-#include <string.h>
-#include <stdio.h>
 
 #include <uORB/Subscription.hpp>
 #include <uORB/Publication.hpp>
@@ -50,50 +48,22 @@
 namespace control
 {
 
-Block::Block(SuperBlock *parent, const char *name) :
-	_name(name),
-	_parent(parent),
-	_dt(0),
-	_subscriptions(),
-	_params()
-{
-	if (getParent() != nullptr) {
-		getParent()->getChildren().add(this);
-	}
-}
-
 void Block::getName(char *buf, size_t n)
 {
-	if (getParent() == nullptr) {
-		strncpy(buf, _name, n);
-		// ensure string is terminated
-		buf[n - 1] = '\0';
+	strncpy(buf, _name, n);
 
-	} else {
-		char parentName[blockNameLengthMax];
-		getParent()->getName(parentName, n);
-
-		if (!strcmp(_name, "")) {
-			strncpy(buf, parentName, n);
-			// ensure string is terminated
-			buf[n - 1] = '\0';
-
-		} else {
-			snprintf(buf, n, "%s_%s", parentName, _name);
-		}
-	}
+	// ensure string is terminated
+	buf[n - 1] = '\0';
 }
 
 void Block::updateParams()
 {
 	BlockParamBase *param = getParams().getHead();
-	int count = 0;
+	unsigned count = 0;
 
 	while (param != nullptr) {
 		if (count++ > maxParamsPerBlock) {
-			char name[blockNameLengthMax];
-			getName(name, blockNameLengthMax);
-			printf("exceeded max params for block: %s\n", name);
+			PX4_ERR("exceeded max params for block: %s\n", _name);
 			break;
 		}
 
@@ -106,13 +76,11 @@ void Block::updateParams()
 void Block::updateSubscriptions()
 {
 	uORB::SubscriptionNode *sub = getSubscriptions().getHead();
-	int count = 0;
+	unsigned count = 0;
 
 	while (sub != nullptr) {
 		if (count++ > maxSubscriptionsPerBlock) {
-			char name[blockNameLengthMax];
-			getName(name, blockNameLengthMax);
-			printf("exceeded max subscriptions for block: %s\n", name);
+			PX4_ERR("exceeded max subscriptions for block: %s\n", _name);
 			break;
 		}
 
@@ -124,13 +92,11 @@ void Block::updateSubscriptions()
 void Block::updatePublications()
 {
 	uORB::PublicationNode *pub = getPublications().getHead();
-	int count = 0;
+	unsigned count = 0;
 
 	while (pub != nullptr) {
 		if (count++ > maxPublicationsPerBlock) {
-			char name[blockNameLengthMax];
-			getName(name, blockNameLengthMax);
-			printf("exceeded max publications for block: %s\n", name);
+			PX4_ERR("exceeded max publications for block: %s\n", _name);
 			break;
 		}
 
@@ -138,80 +104,6 @@ void Block::updatePublications()
 		pub = pub->getSibling();
 	}
 }
-
-void SuperBlock::setDt(float dt)
-{
-	Block::setDt(dt);
-	Block *child = getChildren().getHead();
-	int count = 0;
-
-	while (child != nullptr) {
-		if (count++ > maxChildrenPerBlock) {
-			char name[blockNameLengthMax];
-			getName(name, blockNameLengthMax);
-			printf("exceeded max children for block: %s\n", name);
-			break;
-		}
-
-		child->setDt(dt);
-		child = child->getSibling();
-	}
-}
-
-void SuperBlock::updateChildParams()
-{
-	Block *child = getChildren().getHead();
-	int count = 0;
-
-	while (child != nullptr) {
-		if (count++ > maxChildrenPerBlock) {
-			char name[blockNameLengthMax];
-			getName(name, blockNameLengthMax);
-			printf("exceeded max children for block: %s\n", name);
-			break;
-		}
-
-		child->updateParams();
-		child = child->getSibling();
-	}
-}
-
-void SuperBlock::updateChildSubscriptions()
-{
-	Block *child = getChildren().getHead();
-	int count = 0;
-
-	while (child != nullptr) {
-		if (count++ > maxChildrenPerBlock) {
-			char name[blockNameLengthMax];
-			getName(name, blockNameLengthMax);
-			printf("exceeded max children for block: %s\n", name);
-			break;
-		}
-
-		child->updateSubscriptions();
-		child = child->getSibling();
-	}
-}
-
-void SuperBlock::updateChildPublications()
-{
-	Block *child = getChildren().getHead();
-	int count = 0;
-
-	while (child != nullptr) {
-		if (count++ > maxChildrenPerBlock) {
-			char name[blockNameLengthMax];
-			getName(name, blockNameLengthMax);
-			printf("exceeded max children for block: %s\n", name);
-			break;
-		}
-
-		child->updatePublications();
-		child = child->getSibling();
-	}
-}
-
 
 } // namespace control
 

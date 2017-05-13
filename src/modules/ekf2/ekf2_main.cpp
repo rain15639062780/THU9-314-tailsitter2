@@ -43,18 +43,14 @@
 #include <px4_tasks.h>
 #include <px4_posix.h>
 #include <px4_time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
+
 #include <math.h>
 #include <poll.h>
 #include <time.h>
 #include <float.h>
 
 #include <arch/board/board.h>
+#include <controllib/block/Block.hpp>
 #include <systemlib/param/param.h>
 #include <systemlib/err.h>
 #include <systemlib/systemlib.h>
@@ -62,7 +58,6 @@
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <platforms/px4_defines.h>
 #include <drivers/drv_hrt.h>
-#include <controllib/uorb/blocks.hpp>
 
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_gps_position.h>
@@ -322,7 +317,6 @@ Ekf2::Ekf2():
 	_lp_roll_rate(250.0f, 30.0f),
 	_lp_pitch_rate(250.0f, 30.0f),
 	_lp_yaw_rate(250.0f, 20.0f),
-	_ekf(),
 	_params(_ekf.getParamHandle()),
 	_obs_dt_min_ms(this, "EKF2_MIN_OBS_DT", false, _params->sensor_interval_min_ms),
 	_mag_delay_ms(this, "EKF2_MAG_DELAY", false, _params->mag_delay_ms),
@@ -1193,7 +1187,7 @@ void Ekf2::task_main()
 
 
 		// publish replay message if in replay mode
-		bool publish_replay_message = (bool)_param_record_replay_msg.get();
+		bool publish_replay_message = (_param_record_replay_msg.get() == 1);
 
 		if (publish_replay_message) {
 			struct ekf2_replay_s replay = {};

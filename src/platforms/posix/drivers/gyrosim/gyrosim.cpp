@@ -1223,7 +1223,7 @@ namespace gyrosim
 
 GYROSIM	*g_dev_sim; // on simulated bus
 
-int	start(enum Rotation /*rotation*/);
+int	start(enum Rotation);
 int	stop();
 int	test();
 int	reset();

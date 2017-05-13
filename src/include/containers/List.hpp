@@ -52,7 +52,7 @@ public:
 
 	void setSibling(T sibling) { _sibling = sibling; }
 	T getSibling() { return _sibling; }
-	T get() { return _sibling; }
+	//T get() { return _sibling; }
 
 protected:
 	T _sibling{nullptr};

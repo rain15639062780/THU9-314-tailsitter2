@@ -1,8 +1,7 @@
 #pragma once
 
 #include <px4_posix.h>
-#include <controllib/blocks.hpp>
-#include <controllib/uorb/blocks.hpp>
+#include "blocks.hpp"
 
 using control::BlockPI;
 using control::BlockP;
