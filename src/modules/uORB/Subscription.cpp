@@ -37,6 +37,7 @@
  */
 
 #include "Subscription.hpp"
+
 #include "topics/actuator_armed.h"
 #include "topics/actuator_controls.h"
 #include "topics/att_pos_mocap.h"
@@ -70,21 +71,20 @@
 namespace uORB
 {
 
-SubscriptionBase::SubscriptionBase(const struct orb_metadata *meta,
-				   unsigned interval, unsigned instance) :
+SubscriptionBase::SubscriptionBase(const struct orb_metadata *meta, unsigned interval, int instance) :
 	_meta(meta),
-	_instance(instance),
-	_handle()
+	_instance(instance)
 {
 	if (_instance > 0) {
-		_handle =  orb_subscribe_multi(
-				   getMeta(), instance);
+		_handle = orb_subscribe_multi(getMeta(), instance);
 
 	} else {
-		_handle =  orb_subscribe(getMeta());
+		_handle = orb_subscribe(getMeta());
 	}
 
-	if (_handle < 0) { PX4_ERR("sub failed"); }
+	if (_handle < 0) {
+		PX4_ERR("sub failed");
+	}
 
 	if (interval > 0) {
 		orb_set_interval(getHandle(), interval);
@@ -96,7 +96,9 @@ bool SubscriptionBase::updated()
 	bool isUpdated = false;
 	int ret = orb_check(_handle, &isUpdated);
 
-	if (ret != PX4_OK) { PX4_ERR("orb check failed"); }
+	if (ret != PX4_OK) {
+		PX4_ERR("orb check failed");
+	}
 
 	return isUpdated;
 }
@@ -106,49 +108,42 @@ void SubscriptionBase::update(void *data)
 	if (updated()) {
 		int ret = orb_copy(_meta, _handle, data);
 
-		if (ret != PX4_OK) { PX4_ERR("orb copy failed"); }
+		if (ret != PX4_OK) {
+			PX4_ERR("orb copy failed");
+		}
 	}
+}
+
+unsigned SubscriptionBase::getInterval() const
+{
+	unsigned interval;
+	orb_get_interval(getHandle(), &interval);
+	return interval;
 }
 
 SubscriptionBase::~SubscriptionBase()
 {
 	int ret = orb_unsubscribe(_handle);
 
-	if (ret != PX4_OK) { PX4_ERR("orb unsubscribe failed"); }
+	if (ret != PX4_OK) {
+		PX4_ERR("orb unsubscribe failed");
+	}
 }
 
 template <class T>
-Subscription<T>::Subscription(const struct orb_metadata *meta,
-			      unsigned interval,
-			      int instance,
-			      List<SubscriptionNode *> *list) :
-	SubscriptionNode(meta, interval, instance, list),
-	_data() // initialize data structure to zero
+Subscription<T>::Subscription(const struct orb_metadata *meta, unsigned interval, int instance,
+			      List<SubscriptionNode *> *list)
+	: SubscriptionNode(meta, interval, instance, list)
 {
-}
-
-template <class T>
-Subscription<T>::Subscription(const Subscription &other) :
-	SubscriptionNode(other._meta, other.getInterval(), other._instance, nullptr),
-	_data() // initialize data structure to zero
-{
-}
-
-template <class T>
-Subscription<T>::~Subscription()
-{
+	if (list != nullptr) {
+		list->add(this);
+	}
 }
 
 template <class T>
 void Subscription<T>::update()
 {
-	SubscriptionBase::update((void *)(&_data));
-}
-
-template <class T>
-bool Subscription<T>::check_updated()
-{
-	return SubscriptionBase::updated();
+	SubscriptionBase::update(&_data);
 }
 
 template class __EXPORT Subscription<actuator_armed_s>;

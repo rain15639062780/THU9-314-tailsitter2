@@ -38,8 +38,6 @@
 
 #pragma once
 
-#include <assert.h>
-
 #include <uORB/uORB.h>
 #include <containers/List.hpp>
 #include <systemlib/err.h>
@@ -48,14 +46,12 @@ namespace uORB
 {
 
 /**
- * Base subscription warapper class, used in list traversal
+ * Base subscription wrapper class, used in list traversal
  * of various subscriptions.
  */
 class __EXPORT SubscriptionBase
 {
 public:
-// methods
-
 	/**
 	 * Constructor
 	 *
@@ -65,8 +61,13 @@ public:
 	 * 	between updates
 	 * @param instance The instance for multi sub.
 	 */
-	SubscriptionBase(const struct orb_metadata *meta,
-			 unsigned interval = 0, unsigned instance = 0);
+	SubscriptionBase(const struct orb_metadata *meta, unsigned interval = 0, int instance = 0);
+
+	virtual ~SubscriptionBase();
+
+	// disallow copy, assignment
+	SubscriptionBase(const SubscriptionBase &other) = delete;
+	SubscriptionBase &operator=(const SubscriptionBase &other) = delete;
 
 	/**
 	 * Check if there is a new update.
@@ -79,33 +80,17 @@ public:
 	 */
 	void update(void *data);
 
-	/**
-	 * Deconstructor
-	 */
-	virtual ~SubscriptionBase();
-
-// accessors
 	const struct orb_metadata *getMeta() { return _meta; }
 	int getHandle() const { return _handle; }
 
-	unsigned getInterval() const
-	{
-		unsigned int interval;
-		orb_get_interval(getHandle(), &interval);
-		return interval;
-	}
+	unsigned getInterval() const;
+
 protected:
-// accessors
 	void setHandle(int handle) { _handle = handle; }
-// attributes
+
 	const struct orb_metadata *_meta;
 	int _instance;
-	int _handle;
-private:
-	// disallow copy
-	SubscriptionBase(const SubscriptionBase &other);
-	// disallow assignment
-	SubscriptionBase &operator=(const SubscriptionBase &other);
+	int _handle{-1};
 };
 
 /**
@@ -116,10 +101,7 @@ typedef SubscriptionBase SubscriptionTiny;
 /**
  * The subscription base class as a list node.
  */
-class __EXPORT SubscriptionNode :
-
-	public SubscriptionBase,
-	public ListNode<SubscriptionNode *>
+class __EXPORT SubscriptionNode : public SubscriptionBase, public ListNode<SubscriptionNode *>
 {
 public:
 	/**
@@ -133,9 +115,7 @@ public:
 	 * @param list 	A pointer to a list of subscriptions
 	 * 	that this should be appended to.
 	 */
-	SubscriptionNode(const struct orb_metadata *meta,
-			 unsigned interval = 0,
-			 int instance = 0,
+	SubscriptionNode(const struct orb_metadata *meta, unsigned interval = 0, int instance = 0,
 			 List<SubscriptionNode *> *list = nullptr) :
 		SubscriptionBase(meta, interval, instance)
 	{
@@ -154,10 +134,11 @@ public:
  * Subscription wrapper class
  */
 template<class T>
-class __EXPORT Subscription :
-	public SubscriptionNode
+class __EXPORT Subscription : public SubscriptionNode
 {
+
 public:
+
 	/**
 	 * Constructor
 	 *
@@ -168,32 +149,29 @@ public:
 	 * @param list A list interface for adding to
 	 * 	list during construction
 	 */
-	Subscription(const struct orb_metadata *meta,
-		     unsigned interval = 0,
-		     int instance = 0,
-		     List<SubscriptionNode *> *list = nullptr);
+	explicit Subscription(const struct orb_metadata *meta, unsigned interval = 0, int instance = 0,
+			      List<SubscriptionNode *> *list = nullptr);
 
-	Subscription(const Subscription &);
+	Subscription() = default;
 
-	/**
-	 * Deconstructor
-	 */
-	virtual ~Subscription();
+	~Subscription() override = default;
 
-
-	/**
-	 * Create an update function that uses the embedded struct.
-	 */
-	void update();
+	// disable copying, assignment, move
+	Subscription(const Subscription &) = delete;
+	Subscription &operator=(const Subscription &) = delete;
+	Subscription &operator=(Subscription &&) = delete;
+	Subscription(Subscription &&) = delete;
 
 	/**
 	 * Create an update function that uses the embedded struct.
 	 */
-	bool check_updated();
+	void update() override;
+
 	/*
 	 * This function gets the T struct data
 	 * */
 	const T &get() const { return _data; }
+
 private:
 	T _data;
 };

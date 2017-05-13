@@ -43,45 +43,41 @@ template<class T>
 class __EXPORT ListNode
 {
 public:
-	ListNode() : _sibling(nullptr)
-	{
-	}
-	virtual ~ListNode() {};
+	ListNode() = default;
+	~ListNode() = default;
+
+	// forbid copy, assignment
+	ListNode(const ListNode &other) = delete;
+	ListNode &operator = (const ListNode &) = delete;
+
 	void setSibling(T sibling) { _sibling = sibling; }
 	T getSibling() { return _sibling; }
-	T get()
-	{
-		return _sibling;
-	}
+	T get() { return _sibling; }
+
 protected:
-	T _sibling;
-private:
-	// forbid copy
-	ListNode(const ListNode &other);
-	// forbid assignment
-	ListNode &operator = (const ListNode &);
+	T _sibling{nullptr};
 };
 
 template<class T>
 class __EXPORT List
 {
 public:
-	List() : _head()
-	{
-	}
-	virtual ~List() {};
+	List() = default;
+	~List() = default;
+
+	// forbid copy, assignment
+	List(const List &other) = delete;
+	List &operator = (const List &) = delete;
+
 	void add(T newNode)
 	{
 		newNode->setSibling(getHead());
 		setHead(newNode);
 	}
+
 	T getHead() { return _head; }
+
 protected:
 	void setHead(T &head) { _head = head; }
-	T _head;
-private:
-	// forbid copy
-	List(const List &other);
-	// forbid assignment
-	List &operator = (const List &);
+	T _head{nullptr};
 };
