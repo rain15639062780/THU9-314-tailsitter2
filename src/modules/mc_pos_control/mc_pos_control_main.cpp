@@ -74,6 +74,8 @@
 #include <controllib/blocks.hpp>
 #include <controllib/block/BlockParam.hpp>
 
+#include "lib/flight_tasks/FlightTasks.hpp"
+
 /**
  * Multicopter position control app start / stop handling function
  *
@@ -152,6 +154,8 @@ private:
 	control::BlockDerivative _vel_x_deriv;
 	control::BlockDerivative _vel_y_deriv;
 	control::BlockDerivative _vel_z_deriv;
+
+	FlightTasks _flight_tasks;
 
 	struct {
 		param_t thr_min;
@@ -1704,6 +1708,10 @@ MulticopterPositionControl::calculate_velocity_setpoint(float dt)
 {
 	/* run position & altitude controllers, if enabled (otherwise use already computed velocity setpoints) */
 	if (_run_pos_control) {
+
+		_pos_sp(0) = _flight_tasks.get_local_position_setpoint()->x;
+		_pos_sp(1) = _flight_tasks.get_local_position_setpoint()->y;
+		_pos_sp(2) = _flight_tasks.get_local_position_setpoint()->z;
 
 		// If for any reason, we get a NaN position setpoint, we better just stay where we are.
 		if (PX4_ISFINITE(_pos_sp(0)) && PX4_ISFINITE(_pos_sp(1))) {
