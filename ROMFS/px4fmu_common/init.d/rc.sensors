@@ -343,6 +343,11 @@ fi
 
 if ver hwcmp PX4FMU_V4PRO
 then
+	# Possible external compass
+	if hmc5883 -C -T -X start
+	then
+	fi
+
 	# Internal SPI bus ICM-20608-G
 	if mpu6000 -R 2 -T 20608 start
 	then
@@ -363,15 +368,15 @@ then
 	then
 	fi
 
-	# Possible external compasses
-	if hmc5883 -X start
-	then
-	fi
-
 fi
 
 if ver hwcmp PX4FMU_V5
 then
+	# Possible external compasses
+	if hmc5883 -C -T -X start
+	then
+	fi
+
 	# Internal SPI bus ICM-20602
 	if mpu6000 -R 8 -s -T 20602 start
 	then
@@ -389,11 +394,6 @@ then
 
 	# Internal SPI bus BMI055 gyro
 	if bmi055 -G -R 10 start
-	then
-	fi
-
-	# Possible external compasses
-	if hmc5883 -X start
 	then
 	fi
 
