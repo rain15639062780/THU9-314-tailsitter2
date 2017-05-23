@@ -218,9 +218,6 @@ private:
 		math::Vector<3> vel_ff;
 	}		_params;
 
-	struct map_projection_reference_s _ref_pos;
-	hrt_abstime _ref_timestamp;
-
 	bool _reset_sp_xy;
 	bool _reset_sp_z;
 	bool _do_reset_alt_pos_flag;
@@ -408,7 +405,6 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_vel_x_deriv(this, "VELD"),
 	_vel_y_deriv(this, "VELD"),
 	_vel_z_deriv(this, "VELD"),
-	_ref_timestamp(0),
 	_reset_sp_xy(true),
 	_reset_sp_z(true),
 	_do_reset_alt_pos_flag(true),
@@ -433,8 +429,6 @@ MulticopterPositionControl::MulticopterPositionControl() :
 {
 	// Make the quaternion valid for control state
 	_ctrl_state.q[0] = 1.0f;
-
-	_ref_pos = {};
 
 	_params.pos_p.zero();
 	_params.vel_p.zero();
