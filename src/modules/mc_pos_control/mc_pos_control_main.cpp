@@ -425,6 +425,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_vel_x_deriv(this, "VELD"),
 	_vel_y_deriv(this, "VELD"),
 	_vel_z_deriv(this, "VELD"),
+	_flight_tasks(nullptr),
 	_ref_alt(0.0f),
 	_ref_timestamp(0),
 	_reset_pos_sp(true),
