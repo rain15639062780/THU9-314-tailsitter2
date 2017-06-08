@@ -1323,7 +1323,6 @@ void MulticopterPositionControl::control_auto(float dt)
 	reset_sp_xy();
 	reset_sp_z();
 
-	bool current_setpoint_valid = false;
 	bool previous_setpoint_valid = false;
 	bool next_setpoint_valid = false;
 
@@ -1335,14 +1334,8 @@ void MulticopterPositionControl::control_auto(float dt)
 		_curr_pos_sp(0) =  _pos_sp_triplet.current.x;
 		_curr_pos_sp(1) =  _pos_sp_triplet.current.y;
 		_curr_pos_sp(2) =  _pos_sp_triplet.current.z;
-
-	} else {
-		_curr_pos_sp(0) = _pos(0);
-		_curr_pos_sp(1) = _pos(1);
-		_curr_pos_sp(2) = _pos(2);
 	}
 
-	current_setpoint_valid = true;
 
 	if (_pos_sp_triplet.previous.valid) {
 
@@ -1365,7 +1358,7 @@ void MulticopterPositionControl::control_auto(float dt)
 	_limit_vel_xy = (!next_setpoint_valid || (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LOITER))
 			&& (sqrtf(dist(0) * dist(0) + dist(1) * dist(1)) <= _target_threshold_xy.get());
 
-	if (current_setpoint_valid &&
+	if (_pos_sp_triplet.current.valid &&
 	    (_pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_IDLE)) {
 
 		float cruising_speed_xy = get_cruising_speed_xy();
