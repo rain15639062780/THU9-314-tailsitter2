@@ -1846,6 +1846,93 @@ void MulticopterPositionControl::control_auto(float dt)
 			/* by default use current setpoint as is */
 			math::Vector<3> pos_sp = _curr_pos_sp;
 
+			/*
+			 * Z-DIRECTION
+			 */
+
+			/* get various distances */
+			float total_dist_z = fabsf(_curr_pos_sp(2) - _prev_pos_sp(2));
+			float dist_to_prev_z = fabsf(_pos(2) - _prev_pos_sp(2));
+			float dist_to_current_z = fabsf(_curr_pos_sp(2) - _pos(2));
+
+			/* if pos_sp has not reached target setpoint (=curr_pos_sp(2)),
+			 * then compute setpoint depending on vel_max */
+			if ((total_dist_z >  SIGMA_NORM) && (fabsf(_pos_sp(2) - _curr_pos_sp(2)) > SIGMA_NORM)) {
+
+				/* check sign */
+				bool flying_upward = _curr_pos_sp(2) < _prev_pos_sp(2);
+
+				/* final_vel_z is the max velocity which depends on the distance of total_dist_z
+				 * with default params.vel_max_up/down
+				 */
+				float final_vel_z = (flying_upward) ? _params.vel_max_up : _params.vel_max_down;
+
+				/* target threshold defines the distance to _curr_pos_sp(2) at which
+				 * the vehicle starts to slow down to approach the target smoothly
+				 */
+				float target_threshold_z = final_vel_z * 1.5f;
+
+				/* if the total distance in z is NOT 2x distance of target_threshold, we
+				 * will need to adjust the final_vel_z
+				 */
+				bool is_2_target_threshold_z = total_dist_z >= 2.0f * target_threshold_z;
+				float slope = (final_vel_z) / (target_threshold_z); /* defines the the acceleration when slowing down */
+				float min_vel_z = 0.2f; // minimum velocity: this is needed since estimation is not perfect
+
+				if (!is_2_target_threshold_z) {
+					/* adjust final_vel_z since we are already very close
+					 * to current and therefore it is not necessary to accelerate
+					 * up to full speed (=final_vel_z)
+					 */
+
+					target_threshold_z = total_dist_z * 0.5f;
+					/* get the velocity at target_threshold_z */
+					float final_vel_z_tmp = slope * (target_threshold_z) + min_vel_z;
+
+					/* make sure that final_vel_z is never smaller than 0.5 of the default final_vel_z
+					 * this is mainly done because the estimation in z is not perfect and therefore
+					 * it is necessary to have a minimum speed
+					 */
+					final_vel_z = math::constrain(final_vel_z_tmp, final_vel_z * 0.5f, final_vel_z);
+				}
+
+				float vel_sp_z = final_vel_z;
+
+				/* we want to slow down */
+				if (dist_to_current_z < target_threshold_z) {
+
+					vel_sp_z = slope * dist_to_current_z + min_vel_z;
+
+				} else if (dist_to_prev_z < target_threshold_z) {
+					/* we want to accelerate */
+
+					float acc_z = fabsf(vel_sp_z - _vel_sp_prev(2)) / dt;
+
+					if (acc_z > _acceleration_z_max_up.get()) {
+						vel_sp_z = _acceleration_z_max_up.get() * dt + fabsf(_vel_sp_prev(2));
+					}
+				}
+
+				/* if we already close to current, then just take over the velocity that
+				 * we would have computed if going directly to the current setpoint
+				 */
+				if (vel_sp_z >= (dist_to_current_z * _params.pos_p(2))) {
+					vel_sp_z = dist_to_current_z * _params.pos_p(2);
+				}
+
+				/* make sure vel_sp_z is always positive */
+				vel_sp_z = math::constrain(vel_sp_z, 0.0f, final_vel_z);
+				/* get the sign of vel_sp_z */
+				vel_sp_z = (flying_upward) ? -vel_sp_z : vel_sp_z;
+				/* compute pos_sp(2) */
+				pos_sp(2) = _pos(2) + vel_sp_z / _params.pos_p(2);
+
+			}
+
+			/*
+			 * XY-DIRECTION
+			 */
+
 			/* line from previous to current and from pos to current */
 			matrix::Vector2f vec_prev_to_current((_curr_pos_sp(0) - _prev_pos_sp(0)), (_curr_pos_sp(1) - _prev_pos_sp(1)));
 			matrix::Vector2f vec_pos_to_current((_curr_pos_sp(0) - _pos(0)), (_curr_pos_sp(1) - _pos(1)));
@@ -1946,11 +2033,8 @@ void MulticopterPositionControl::control_auto(float dt)
 						}
 
 						/* compute velocity at transition where vehicle switches from acceleration to deceleration */
-<<<<<<< cd37db822add0e1722cf6635b6303bd8c5fa6827
 						if ((target_threshold - acceptance_radius) < SIGMA_NORM) {
-=======
-						if ((target_threshold_tmp - acceptance_radius) < SIGMA_NORM) {
->>>>>>> mc_pos_control: don't divide by zero
+
 							final_cruise_speed = vel_close;
 
 						} else {
@@ -2000,10 +2084,6 @@ void MulticopterPositionControl::control_auto(float dt)
 							vel_sp_along_track = vel_close;
 
 						} else {
-<<<<<<< cd37db822add0e1722cf6635b6303bd8c5fa6827
-							float slope = (get_cruising_speed_xy() - vel_close) / (_target_threshold_xy.get() - _nav_rad.get()) ;
-							vel_sp_along_track = slope  * (vec_closest_to_current.length() - _nav_rad.get()) + vel_close;
-=======
 
 							if (target_threshold_xy - _nav_rad.get() < SIGMA_NORM) {
 								vel_sp_along_track = vel_close;
@@ -2012,7 +2092,6 @@ void MulticopterPositionControl::control_auto(float dt)
 								float slope = (get_cruising_speed_xy() - vel_close) / (target_threshold_xy - _nav_rad.get()) ;
 								vel_sp_along_track = slope  * (vec_closest_to_current.length() - _nav_rad.get()) + vel_close;
 							}
->>>>>>> mc_pos_control: don't divide by zero
 						}
 
 						/* since we want to slow down take over previous velocity setpoint along track if it was lower */
@@ -2336,9 +2415,13 @@ MulticopterPositionControl::calculate_velocity_setpoint(float dt)
 
 	/* apply slewrate (aka acceleration limit) for smooth flying */
 	vel_sp_slewrate(dt);
+
+	/* TODO: move this to the end
+	 * reset previous vel sp */
 	_vel_sp_prev = _vel_sp;
 
 	/* special velocity setpoint limitation for smooth takeoff (after slewrate!) */
+
 	if (_in_takeoff) {
 		_in_takeoff = _takeoff_vel_limit < -_vel_sp(2);
 		/* ramp vertical velocity limit up to takeoff speed */
