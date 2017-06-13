@@ -2076,6 +2076,7 @@ void MulticopterPositionControl::control_auto(float dt)
 
 						/* compute velocity at transition where vehicle switches from acceleration to deceleration */
 						if ((target_threshold_xy - acceptance_radius) < SIGMA_NORM) {
+
 							final_cruise_speed = vel_close;
 
 						} else {
