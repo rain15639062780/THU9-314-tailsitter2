@@ -1946,7 +1946,11 @@ void MulticopterPositionControl::control_auto(float dt)
 						}
 
 						/* compute velocity at transition where vehicle switches from acceleration to deceleration */
+<<<<<<< cd37db822add0e1722cf6635b6303bd8c5fa6827
 						if ((target_threshold - acceptance_radius) < SIGMA_NORM) {
+=======
+						if ((target_threshold_tmp - acceptance_radius) < SIGMA_NORM) {
+>>>>>>> mc_pos_control: don't divide by zero
 							final_cruise_speed = vel_close;
 
 						} else {
@@ -1996,8 +2000,19 @@ void MulticopterPositionControl::control_auto(float dt)
 							vel_sp_along_track = vel_close;
 
 						} else {
+<<<<<<< cd37db822add0e1722cf6635b6303bd8c5fa6827
 							float slope = (get_cruising_speed_xy() - vel_close) / (_target_threshold_xy.get() - _nav_rad.get()) ;
 							vel_sp_along_track = slope  * (vec_closest_to_current.length() - _nav_rad.get()) + vel_close;
+=======
+
+							if (target_threshold_xy - _nav_rad.get() < SIGMA_NORM) {
+								vel_sp_along_track = vel_close;
+
+							} else {
+								float slope = (get_cruising_speed_xy() - vel_close) / (target_threshold_xy - _nav_rad.get()) ;
+								vel_sp_along_track = slope  * (vec_closest_to_current.length() - _nav_rad.get()) + vel_close;
+							}
+>>>>>>> mc_pos_control: don't divide by zero
 						}
 
 						/* since we want to slow down take over previous velocity setpoint along track if it was lower */
