@@ -59,8 +59,7 @@ px4_add_module(
 		${px4_bootloader_base}src/arch/stm32/drivers/can/driver.c
 		${px4_bootloader_base}src/protocol/uavcan.c
 	DEPENDS
-		nuttx_export_${BOARD}
+		nuttx_build
 )
-
 
 # vim: set noet ft=cmake fenc=utf-8 ff=unix :

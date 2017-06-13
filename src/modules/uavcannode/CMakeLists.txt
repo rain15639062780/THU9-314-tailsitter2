@@ -82,3 +82,9 @@ px4_add_module(
 		platforms__common
 		uavcan
 	)
+
+set(config_extra_libs
+	uavcan
+	uavcan_stm32_driver
+	PARENT_SCOPE
+	)

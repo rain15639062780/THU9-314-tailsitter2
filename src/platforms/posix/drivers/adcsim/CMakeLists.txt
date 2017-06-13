@@ -38,7 +38,6 @@ px4_add_module(
 		adcsim.cpp
 	DEPENDS
 		platforms__common
-		git_driverframework
 		df_driver_framework
 	)
 

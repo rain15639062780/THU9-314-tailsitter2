@@ -1,6 +1,7 @@
 include(nuttx/px4_impl_nuttx)
 
 px4_nuttx_configure(HWCLASS m4 CONFIG nsh ROMFS y ROMFSROOT px4fmu_common IO px4io-v2)
+set(config_nuttx_ld_script "ld_fullsize.script")
 
 set(config_uavcan_num_ifaces 2)
 
@@ -10,10 +11,9 @@ set(config_module_list
 	#
 	drivers/airspeed
 	drivers/blinkm
-	drivers/bma180
 	drivers/bmi160
 	drivers/bmp280
-	drivers/boards/px4fmu-v4pro
+	drivers/boards/px4fmu-v2
 	drivers/bst
 	drivers/camera_trigger
 	drivers/device
@@ -177,7 +177,7 @@ set(config_module_list
 	#
 	# Segway
 	#
-	#examples/segway
+	examples/segway
 
 	#
 	# Demo apps
@@ -185,25 +185,25 @@ set(config_module_list
 
 	# Tutorial code from
 	# https://px4.io/dev/px4_simple_app
-	#examples/px4_simple_app
+	examples/px4_simple_app
 
 	# Tutorial code from
 	# https://px4.io/dev/daemon
-	#examples/px4_daemon_app
+	examples/px4_daemon_app
 
 	# Tutorial code from
 	# https://px4.io/dev/debug_values
-	#examples/px4_mavlink_debug
+	examples/px4_mavlink_debug
 
 	# Tutorial code from
 	# https://px4.io/dev/example_fixedwing_control
-	#examples/fixedwing_control
+	examples/fixedwing_control
 
 	# Hardware test
-	#examples/hwtest
+	examples/hwtest
 
 	# EKF
-	#examples/ekf_att_pos_estimator
+	examples/ekf_att_pos_estimator
 )
 
 set(config_extra_builtin_cmds

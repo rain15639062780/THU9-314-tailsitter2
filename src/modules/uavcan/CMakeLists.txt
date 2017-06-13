@@ -81,4 +81,12 @@ px4_add_module(
 		uavcan
 	)
 
+#target_link_libraries(${BOARD} PUBLIC uavcan uavcan_stm32_driver)
+
+set(config_extra_libs
+	uavcan
+	uavcan_stm32_driver
+	PARENT_SCOPE
+	)
+
 ## vim: set noet ft=cmake fenc=utf-8 ff=unix :

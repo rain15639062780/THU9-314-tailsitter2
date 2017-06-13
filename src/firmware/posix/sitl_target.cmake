@@ -63,6 +63,9 @@ add_custom_target(run_config
 		DEPENDS px4 logs_symlink
 		)
 
+# Add support for external project building
+include(ExternalProject)
+
 # project to build sitl_gazebo if necessary
 ExternalProject_Add(sitl_gazebo
 	SOURCE_DIR ${PX4_SOURCE_DIR}/Tools/sitl_gazebo

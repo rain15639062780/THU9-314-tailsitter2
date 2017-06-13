@@ -42,7 +42,6 @@ px4_add_module(
 		gyrosim.cpp
 	DEPENDS
 		platforms__common
-		git_driverframework
 		df_driver_framework
 	)
 

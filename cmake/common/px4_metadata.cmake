@@ -73,7 +73,7 @@ function(px4_generate_messages)
 		REQUIRED MSG_FILES OS TARGET
 		ARGN ${ARGN})
 
-	if("${config_nuttx_config}" STREQUAL "bootloader")
+	if("${nuttx_config_type}" STREQUAL "bootloader")
 		# do nothing for bootloaders
 	else()
 

@@ -479,14 +479,6 @@ function(px4_add_common_flags)
 		-D__STDC_FORMAT_MACROS
 		)
 
-	if (NOT (APPLE AND (${CMAKE_C_COMPILER_ID} MATCHES ".*Clang.*")))
-		set(added_exe_linker_flags
-			-Wl,--warn-common
-			-Wl,--gc-sections
-			#,--print-gc-sections
-			)
-	endif()
-
 	# output
 	foreach(var ${inout_vars})
 		string(TOLOWER ${var} lower_var)

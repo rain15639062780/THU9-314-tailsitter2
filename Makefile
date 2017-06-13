@@ -188,6 +188,8 @@ qgc_firmware: px4fmu_firmware misc_qgc_extra_firmware sizes
 
 # px4fmu NuttX firmware
 px4fmu_firmware: \
+	check_px4io-v1_default \
+	check_px4io-v2_default \
 	check_px4fmu-v1_default \
 	check_px4fmu-v2_default \
 	check_px4fmu-v3_default \
@@ -218,14 +220,14 @@ alt_firmware: \
 checks_bootloaders: \
 	check_esc35-v1_bootloader \
 	check_px4cannode-v1_bootloader \
-	check_px4esc-v1_bootloader \
 	check_px4flow-v2_bootloader \
 	check_s2740vc-v1_bootloader \
-# not fitting in flash	check_zubaxgnss-v1_bootloader \
+	check_px4esc-v1_bootloader \
+	check_zubaxgnss-v1_bootloader \
 	sizes
 
 sizes:
-	@-find build_* -name firmware_nuttx -type f | xargs size 2> /dev/null || :
+	@-find build_* -name *.elf -type f | xargs size 2> /dev/null || :
 
 # All default targets that don't require a special build environment
 check: check_posix_sitl_default px4fmu_firmware misc_qgc_extra_firmware alt_firmware checks_bootloaders tests check_format
@@ -365,7 +367,6 @@ cppcheck: posix_sitl_default
 
 clean:
 	@rm -rf $(SRC_DIR)/build_*/
-	-@$(MAKE) --no-print-directory -C NuttX/nuttx clean
 
 submodulesclean:
 	@git submodule foreach --quiet --recursive git clean -ff -x -d
