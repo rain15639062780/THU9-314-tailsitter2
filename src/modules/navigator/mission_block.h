@@ -129,6 +129,10 @@ protected:
 
 	float get_time_inside(const struct mission_item_s &item);
 
+	float get_max_altitude_based_on_battery();
+
+	void	mission_apply_limitation(struct mission_item_s *item);
+
 	mission_item_s _mission_item{};
 
 	bool _waypoint_position_reached{false};

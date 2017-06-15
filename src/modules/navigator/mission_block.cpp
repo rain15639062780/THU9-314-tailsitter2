@@ -774,3 +774,41 @@ MissionBlock::set_idle_item(struct mission_item_s *item)
 	item->autocontinue = true;
 	item->origin = ORIGIN_ONBOARD;
 }
+
+void
+MissionBlock::mission_apply_limitation(struct mission_item_s *item)
+{
+	/* first we check battery level */
+	float altitude_abs = item->altitude_is_relative
+			     ? item->altitude + _navigator->get_home_position()->alt
+			     : item->altitude;
+
+	if ((get_max_altitude_based_on_battery() + _navigator->get_home_position()->alt) < altitude_abs) {
+		item->altitude = item->altitude_is_relative ?
+				 get_max_altitude_based_on_battery() :
+				 get_max_altitude_based_on_battery() + _navigator->get_home_position()->alt;
+	}
+}
+
+float
+MissionBlock::get_max_altitude_based_on_battery()
+{
+	/* ToDo: add a meaningful altitude */
+	float valid_altitude_max = 50.0f;
+
+	battery_status_s *battery = _navigator->get_battery_status();
+
+	if (battery->warning == battery_status_s::BATTERY_WARNING_LOW) {
+		valid_altitude_max = valid_altitude_max * 0.75f;
+	}
+
+	if (battery->warning == battery_status_s::BATTERY_WARNING_CRITICAL) {
+		valid_altitude_max = valid_altitude_max * 0.5f;
+	}
+
+	if (battery->warning == battery_status_s::BATTERY_WARNING_EMERGENCY) {
+		valid_altitude_max = valid_altitude_max * 0.25f;
+	}
+
+	return valid_altitude_max;
+}

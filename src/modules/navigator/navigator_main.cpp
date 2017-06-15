@@ -259,6 +259,7 @@ Navigator::task_main()
 	_offboard_mission_sub = orb_subscribe(ORB_ID(offboard_mission));
 	_param_update_sub = orb_subscribe(ORB_ID(parameter_update));
 	_vehicle_command_sub = orb_subscribe(ORB_ID(vehicle_command));
+	_battery_sub = orb_subscribe(ORB_ID(battery_status));
 
 	/* copy all topics first time */
 	vehicle_status_update();

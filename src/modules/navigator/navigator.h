@@ -327,11 +327,6 @@ private:
 	void		task_main();
 
 	/**
-	 * Translate mission item to a position setpoint.
-	 */
-	void		mission_item_to_position_setpoint(const mission_item_s *item, position_setpoint_s *sp);
-
-	/**
 	 * Publish a new position setpoint triplet for position controllers
 	 */
 	void		publish_position_setpoint_triplet();

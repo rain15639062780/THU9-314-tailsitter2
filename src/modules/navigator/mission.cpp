@@ -481,6 +481,7 @@ Mission::set_mission_items()
 
 		/* update position setpoint triplet  */
 		pos_sp_triplet->previous.valid = false;
+		mission_apply_limitation(&_mission_item);
 		mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
 		pos_sp_triplet->next.valid = false;
 
@@ -737,6 +738,7 @@ Mission::set_mission_items()
 			set_align_mission_item(&_mission_item, &mission_item_next_position);
 
 			/* set position setpoint to target during the transition */
+			mission_apply_limitation(&_mission_item);
 			mission_item_to_position_setpoint(&mission_item_next_position, &pos_sp_triplet->current);
 		}
 
@@ -779,6 +781,7 @@ Mission::set_mission_items()
 	/*********************************** set setpoints and check next *********************************************/
 
 	/* set current position setpoint from mission item (is protected against non-position items) */
+	mission_apply_limitation(&_mission_item);
 	mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
 
 	/* issue command if ready (will do nothing for position mission items) */
@@ -805,6 +808,7 @@ Mission::set_mission_items()
 		/* try to process next mission item */
 		if (has_next_position_item) {
 			/* got next mission item, update setpoint triplet */
+			mission_apply_limitation(&_mission_item);
 			mission_item_to_position_setpoint(&mission_item_next_position, &pos_sp_triplet->next);
 
 		} else {
@@ -1154,6 +1158,7 @@ Mission::do_abort_landing()
 	_mission_item.origin = ORIGIN_ONBOARD;
 
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+	mission_apply_limitation(&_mission_item);
 	mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
 
 	_navigator->set_position_setpoint_triplet_updated();
