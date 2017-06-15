@@ -203,6 +203,12 @@ Navigator::vehicle_land_detected_update()
 }
 
 void
+Navigator::battery_status_update()
+{
+	orb_copy(ORB_ID(battery_status), _battery_sub, &_battery);
+}
+
+void
 Navigator::params_update()
 {
 	parameter_update_s param_update;
@@ -257,6 +263,7 @@ Navigator::task_main()
 	/* copy all topics first time */
 	vehicle_status_update();
 	vehicle_land_detected_update();
+	battery_status_update();
 	global_position_update();
 	local_position_update();
 	gps_position_update();
@@ -359,6 +366,13 @@ Navigator::task_main()
 
 		if (updated) {
 			vehicle_land_detected_update();
+		}
+
+		/* check battery status update */
+		orb_check(_battery_sub, &updated);
+
+		if (updated) {
+			battery_status_update();
 		}
 
 		/* navigation capabilities updated */

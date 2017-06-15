@@ -68,6 +68,7 @@
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vehicle_gps_position.h>
 #include <uORB/topics/vehicle_land_detected.h>
+#include <uORB/topics/battery_status.h>
 #include <uORB/uORB.h>
 
 /**
@@ -140,6 +141,7 @@ public:
 	struct vehicle_land_detected_s *get_land_detected() { return &_land_detected; }
 	struct vehicle_local_position_s *get_local_position() { return &_local_pos; }
 	struct vehicle_status_s *get_vstatus() { return &_vstatus; }
+	struct battery_status_s *get_battery_status() { return &_battery;}
 
 	bool home_position_valid() { return (_home_pos.timestamp > 0); }
 
@@ -242,6 +244,7 @@ private:
 	int		_sensor_combined_sub{-1};	/**< sensor combined subscription */
 	int		_vehicle_command_sub{-1};	/**< vehicle commands (onboard and offboard) */
 	int		_vstatus_sub{-1};		/**< vehicle status subscription */
+	int 	_battery_sub{-1};		/**< battery status subscription */
 
 	orb_advert_t	_att_sp_pub{nullptr};
 	orb_advert_t	_geofence_result_pub{nullptr};
@@ -263,6 +266,7 @@ private:
 	vehicle_land_detected_s				_land_detected{};	/**< vehicle land_detected */
 	vehicle_local_position_s			_local_pos;		/**< local vehicle position */
 	vehicle_status_s				_vstatus{};		/**< vehicle status */
+	battery_status_s 				_battery{};  /**< battery status */
 
 	int		_mission_instance_count{-1};	/**< instance count for the current mission */
 
@@ -310,6 +314,7 @@ private:
 	void		sensor_combined_update();
 	void		vehicle_land_detected_update();
 	void		vehicle_status_update();
+	void 		battery_status_update();
 
 	/**
 	 * Shim for calling task_main from task_create.
