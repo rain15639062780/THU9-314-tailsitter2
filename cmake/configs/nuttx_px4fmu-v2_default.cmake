@@ -189,8 +189,3 @@ set(config_module_list
 )
 
 set(config_uavcan_num_ifaces 2)
-
-set(config_extra_builtin_cmds
-	serdis
-	sercon
-	)

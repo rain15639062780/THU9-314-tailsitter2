@@ -1,48 +1,9 @@
 
 include(common/px4_upload)
 
-add_custom_target(sercon)
-set_target_properties(sercon PROPERTIES
-	PRIORITY "SCHED_PRIORITY_DEFAULT"
-	MAIN "sercon"
-	STACK_MAIN "2048"
-	COMPILE_FLAGS "-Os")
-
-add_custom_target(serdis)
-set_target_properties(serdis PROPERTIES
-	PRIORITY "SCHED_PRIORITY_DEFAULT"
-	MAIN "serdis"
-	STACK_MAIN "2048"
-	COMPILE_FLAGS "-Os")
-
-# builtin commands from module list
-set(module_list)
-list(APPEND module_list
-	${module_libraries}
-	${config_extra_builtin_cmds}
-	)
-list(SORT module_list)
-
-set(builtin_apps_string)
-set(builtin_apps_decl_string)
-set(command_count 0)
-
-foreach(module ${module_list})
-	foreach(property MAIN STACK_MAIN PRIORITY)
-		get_target_property(${property} ${module} ${property})
-	endforeach()
-	if (MAIN)
-		set(builtin_apps_string "${builtin_apps_string}\t{\"${MAIN}\", ${PRIORITY}, ${STACK_MAIN}, ${MAIN}_main},\n")
-		set(builtin_apps_decl_string "${builtin_apps_decl_string}extern int ${MAIN}_main(int argc, char *argv[]);\n")
-		math(EXPR command_count "${command_count}+1")
-	endif()
-endforeach()
-
-configure_file(${PX4_SOURCE_DIR}/cmake/nuttx/builtin_commands.c.in builtin_commands.c)
-
 # add executable
 set(fw_name ${CONFIG}.elf)
-add_executable(${fw_name} builtin_commands.c)
+add_executable(${fw_name} ${PX4_SOURCE_DIR}/nuttx-configs/${BOARD}/src/empty.c)
 
 set_target_properties(${fw_name} PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${PX4_BINARY_DIR}

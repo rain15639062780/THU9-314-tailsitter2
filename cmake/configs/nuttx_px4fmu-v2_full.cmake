@@ -205,8 +205,3 @@ set(config_module_list
 	# EKF
 	examples/ekf_att_pos_estimator
 )
-
-set(config_extra_builtin_cmds
-	serdis
-	sercon
-	)

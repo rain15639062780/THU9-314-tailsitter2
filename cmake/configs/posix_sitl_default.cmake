@@ -172,12 +172,6 @@ set(config_module_list
 	# EKF
 	examples/ekf_att_pos_estimator
 )
-
-set(config_extra_builtin_cmds
-	serdis
-	sercon
-	)
-
 # Default config_sitl_rcS_dir (posix_sitl_default), this is overwritten later
 # for the config posix_sitl_efk2 and set again, explicitly, for posix_sitl_lpe,
 # which are based on posix_sitl_default.

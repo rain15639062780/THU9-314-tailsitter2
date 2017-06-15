@@ -219,16 +219,14 @@ function(px4_add_module)
 		if(NOT ${property})
 			set(${property} ${${property}_DEFAULT})
 		endif()
-		set_target_properties(${MODULE} PROPERTIES ${property}
-			${${property}})
+		set_target_properties(${MODULE} PROPERTIES ${property} ${${property}})
 	endforeach()
 
 	# default stack max to stack main
 	if(NOT STACK_MAX)
 		set(STACK_MAX ${STACK_MAIN})
 	endif()
-	set_target_properties(${MODULE} PROPERTIES STACK_MAX
-		${STACK_MAX})
+	set_target_properties(${MODULE} PROPERTIES STACK_MAX ${STACK_MAX})
 
 	if(${OS} STREQUAL "qurt" )
 		set_property(TARGET ${MODULE} PROPERTY POSITION_INDEPENDENT_CODE TRUE)
@@ -270,7 +268,6 @@ function(px4_add_module)
 			set_target_properties(${MODULE} PROPERTIES ${prop} ${${prop}})
 		endif()
 	endforeach()
-
 endfunction()
 
 #=============================================================================

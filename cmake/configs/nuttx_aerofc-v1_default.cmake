@@ -111,6 +111,3 @@ set(config_module_list
 	platforms/common
 	platforms/nuttx/px4_layer
 )
-
-set(config_extra_builtin_cmds
-	)

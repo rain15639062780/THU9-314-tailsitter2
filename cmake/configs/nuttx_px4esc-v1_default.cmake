@@ -75,8 +75,3 @@ set(config_module_list
 	platforms/nuttx/px4_layer
 	modules/uORB
 )
-
-set(config_extra_builtin_cmds
-	serdis
-	sercon
-	)

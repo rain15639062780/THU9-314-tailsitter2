@@ -159,8 +159,3 @@ set(config_module_list
 	# Hardware test
 	#examples/hwtest
 )
-
-set(config_extra_builtin_cmds
-	serdis
-	sercon
-	)
