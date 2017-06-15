@@ -348,11 +348,6 @@ private:
 
 	bool in_auto_takeoff();
 
-	/**
-	 * limit altitude based on several conditions
-	 */
-	void limit_altitude();
-
 	/*
 	 * limit vel horizontally when close to target
 	 */
@@ -843,33 +838,6 @@ MulticopterPositionControl::reset_alt_sp()
 		// continuous when switching into velocity controlled mode, therefore, we don't need to bother about resetting
 		// altitude in a special way
 		_pos_sp(2) = _pos(2);
-	}
-}
-
-void
-MulticopterPositionControl::limit_altitude()
-{
-	/* in altitude control, limit setpoint */
-	if (_run_alt_control && _pos_sp(2) <= -_vehicle_land_detected.alt_max) {
-		_pos_sp(2) = -_vehicle_land_detected.alt_max;
-		return;
-	}
-
-	/* in velocity control mode and want to fly upwards */
-	if (!_run_alt_control && _vel_sp(2) <= 0.0f) {
-
-		/* time to travel to reach zero velocity */
-		float delta_t = -_vel(2) / _params.acc_down_max;
-
-		/* predicted position */
-		float pos_z_next = _pos(2) + _vel(2) * delta_t + 0.5f *
-				   _params.acc_down_max * delta_t *delta_t;
-
-		if (pos_z_next <= -_vehicle_land_detected.alt_max) {
-			_pos_sp(2) = -_vehicle_land_detected.alt_max;
-			_run_alt_control = true;
-			return;
-		}
 	}
 }
 
@@ -1708,8 +1676,6 @@ MulticopterPositionControl::calculate_velocity_setpoint(float dt)
 			_vel_sp(1) = 0.0f;
 		}
 	}
-
-	limit_altitude();
 
 	if (_run_alt_control) {
 		_vel_sp(2) = (_pos_sp(2) - _pos(2)) * _params.pos_p(2);
