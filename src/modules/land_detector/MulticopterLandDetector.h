@@ -75,8 +75,6 @@ protected:
 	virtual bool _get_ground_contact_state() override;
 
 	virtual bool _get_freefall_state() override;
-
-	virtual float _get_max_altitude() override;
 private:
 
 	/**
@@ -93,7 +91,6 @@ private:
 		param_t freefall_acc_threshold;
 		param_t freefall_trigger_time;
 		param_t manual_stick_down_threshold;
-		param_t altitude_max;
 		param_t manual_stick_up_position_takeoff_threshold;
 	} _paramHandle;
 
@@ -108,7 +105,6 @@ private:
 		float freefall_acc_threshold;
 		float freefall_trigger_time;
 		float manual_stick_down_threshold;
-		float altitude_max;
 		float manual_stick_up_position_takeoff_threshold;
 	} _params;
 

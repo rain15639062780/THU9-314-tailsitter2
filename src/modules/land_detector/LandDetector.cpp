@@ -126,9 +126,6 @@ void LandDetector::_cycle()
 
 	_update_state();
 
-	float alt_max_prev = _altitude_max;
-	_altitude_max = _get_max_altitude();
-
 	bool freefallDetected = (_state == LandDetectionState::FREEFALL);
 	bool landDetected = (_state == LandDetectionState::LANDED);
 	bool ground_contactDetected = (_state == LandDetectionState::GROUND_CONTACT);
@@ -137,8 +134,7 @@ void LandDetector::_cycle()
 	if ((_landDetectedPub == nullptr) ||
 	    (_landDetected.freefall != freefallDetected) ||
 	    (_landDetected.landed != landDetected) ||
-	    (_landDetected.ground_contact != ground_contactDetected) ||
-	    (fabsf(_landDetected.alt_max - alt_max_prev) > FLT_EPSILON)) {
+	    (_landDetected.ground_contact != ground_contactDetected)) {
 
 		if (!landDetected && _landDetected.landed) {
 			// We did take off
@@ -158,7 +154,6 @@ void LandDetector::_cycle()
 		_landDetected.freefall = (_state == LandDetectionState::FREEFALL);
 		_landDetected.landed = (_state == LandDetectionState::LANDED);
 		_landDetected.ground_contact = (_state == LandDetectionState::GROUND_CONTACT);
-		_landDetected.alt_max = _altitude_max;
 
 		int instance;
 		orb_publish_auto(ORB_ID(vehicle_land_detected), &_landDetectedPub, &_landDetected,

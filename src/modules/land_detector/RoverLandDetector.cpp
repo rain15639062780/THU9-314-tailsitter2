@@ -76,10 +76,4 @@ bool RoverLandDetector::_get_freefall_state()
 {
 	return false;
 }
-
-float RoverLandDetector::_get_max_altitude()
-{
-	return 0.0f;
-}
-
 }
