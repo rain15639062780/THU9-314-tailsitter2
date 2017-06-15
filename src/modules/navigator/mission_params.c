@@ -195,3 +195,20 @@ PARAM_DEFINE_INT32(VT_WV_LTR_EN, 0);
  * @group FW TECS
  */
 PARAM_DEFINE_FLOAT(FW_AIRSPD_TRIM, 15.0f);
+
+/**
+ * Maximum altitude for multicopters
+ *
+ * The system will obey this limit as a
+ * hard altitude limit. This setting will
+ * be consolidated with the GF_MAX_VER_DIST
+ * parameter.
+ *
+ * @unit m
+ * @min 1.5
+ * @max 10000
+ * @decimal 2
+ * @group Mission
+ *
+ */
+PARAM_DEFINE_FLOAT(MIS_ALT_MAX, 100.0f);

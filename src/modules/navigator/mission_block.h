@@ -153,6 +153,7 @@ protected:
 	control::BlockParamInt _param_vtol_wv_loiter;
 	control::BlockParamInt _param_force_vtol;
 	control::BlockParamFloat _param_back_trans_dur;
+	control::BlockParamFloat _param_maximum_alt;
 };
 
 #endif

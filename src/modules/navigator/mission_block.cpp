@@ -65,7 +65,8 @@ MissionBlock::MissionBlock(Navigator *navigator, const char *name) :
 	_param_vtol_wv_takeoff(this, "VT_WV_TKO_EN", false),
 	_param_vtol_wv_loiter(this, "VT_WV_LTR_EN", false),
 	_param_force_vtol(this, "NAV_FORCE_VT", false),
-	_param_back_trans_dur(this, "VT_B_TRANS_DUR", false)
+	_param_back_trans_dur(this, "VT_B_TRANS_DUR", false),
+	_param_maximum_alt(this, "MIS_ALT_MAX", false)
 {
 }
 
@@ -794,21 +795,20 @@ float
 MissionBlock::get_max_altitude_based_on_battery()
 {
 	/* ToDo: add a meaningful altitude */
-	float valid_altitude_max = 50.0f;
 
 	battery_status_s *battery = _navigator->get_battery_status();
 
 	if (battery->warning == battery_status_s::BATTERY_WARNING_LOW) {
-		valid_altitude_max = valid_altitude_max * 0.75f;
+		return _param_maximum_alt.get() * 0.75f;
 	}
 
-	if (battery->warning == battery_status_s::BATTERY_WARNING_CRITICAL) {
-		valid_altitude_max = valid_altitude_max * 0.5f;
+	else if (battery->warning == battery_status_s::BATTERY_WARNING_CRITICAL) {
+		return _param_maximum_alt.get() * 0.5f;
 	}
 
-	if (battery->warning == battery_status_s::BATTERY_WARNING_EMERGENCY) {
-		valid_altitude_max = valid_altitude_max * 0.25f;
+	else if (battery->warning == battery_status_s::BATTERY_WARNING_EMERGENCY) {
+		return _param_maximum_alt.get() * 0.25f;
 	}
 
-	return valid_altitude_max;
+	return _param_maximum_alt.get();
 }
