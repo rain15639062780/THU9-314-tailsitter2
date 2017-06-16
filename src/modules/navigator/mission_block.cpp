@@ -779,15 +779,19 @@ MissionBlock::set_idle_item(struct mission_item_s *item)
 void
 MissionBlock::mission_apply_limitation(struct mission_item_s *item)
 {
-	/* first we check battery level */
-	float altitude_abs = item->altitude_is_relative
-			     ? item->altitude + _navigator->get_home_position()->alt
-			     : item->altitude;
+	/* do nothing if altitude max is negative */
+	if (_param_maximum_alt.get() > 0.0f) {
 
-	if ((get_max_altitude_based_on_battery() + _navigator->get_home_position()->alt) < altitude_abs) {
-		item->altitude = item->altitude_is_relative ?
-				 get_max_altitude_based_on_battery() :
-				 get_max_altitude_based_on_battery() + _navigator->get_home_position()->alt;
+		/* get absolut altitude */
+		float altitude_abs = item->altitude_is_relative
+				     ? item->altitude + _navigator->get_home_position()->alt
+				     : item->altitude;
+
+		if ((get_max_altitude_based_on_battery() + _navigator->get_home_position()->alt) < altitude_abs) {
+			item->altitude = item->altitude_is_relative ?
+					 get_max_altitude_based_on_battery() :
+					 get_max_altitude_based_on_battery() + _navigator->get_home_position()->alt;
+		}
 	}
 }
 

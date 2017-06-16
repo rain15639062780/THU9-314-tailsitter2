@@ -200,15 +200,16 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_TRIM, 15.0f);
  * Maximum altitude for multicopters
  *
  * The system will obey this limit as a
- * hard altitude limit. This setting will
+ * hard altitude limit for mission. This setting will
  * be consolidated with the GF_MAX_VER_DIST
  * parameter.
+ * A negative value indicates that there is no limit
  *
  * @unit m
- * @min 1.5
+ * @min -1
  * @max 10000
  * @decimal 2
  * @group Mission
  *
  */
-PARAM_DEFINE_FLOAT(MIS_ALT_MAX, 100.0f);
+PARAM_DEFINE_FLOAT(MIS_ALT_MAX, -1.f);
