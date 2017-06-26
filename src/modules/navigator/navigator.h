@@ -188,6 +188,12 @@ public:
 	 */
 	void		reset_cruising_speed();
 
+
+	/**
+	 *  Set triplets to invalid
+	 */
+	void 		reset_triplets();
+
 	/**
 	 * Get the target throttle
 	 *
