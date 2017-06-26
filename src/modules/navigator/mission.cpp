@@ -281,6 +281,9 @@ Mission::find_offboard_land_start()
 void
 Mission::update_onboard_mission()
 {
+	/* reset triplets */
+	_navigator->reset_triplets();
+
 	if (orb_copy(ORB_ID(onboard_mission), _navigator->get_onboard_mission_sub(), &_onboard_mission) == OK) {
 		/* accept the current index set by the onboard mission if it is within bounds */
 		if (_onboard_mission.current_seq >= 0
@@ -327,6 +330,9 @@ void
 Mission::update_offboard_mission()
 {
 	bool failed = true;
+
+	/* reset triplets */
+	_navigator->reset_triplets();
 
 	if (orb_copy(ORB_ID(offboard_mission), _navigator->get_offboard_mission_sub(), &_offboard_mission) == OK) {
 
