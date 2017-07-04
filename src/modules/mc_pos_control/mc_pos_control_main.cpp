@@ -172,8 +172,8 @@ private:
 	control::BlockParamFloat _hold_dz; /**< deadzone around the center for the sticks when flying in position mode */
 	control::BlockParamFloat _acceleration_hor_max; /**<maximum velocity setpoint slewrate for auto & fast manual brake */
 	control::BlockParamFloat _acceleration_hor; /**<acceleration for auto and maximum for manual in velocity control mode*/
-	control::BlockParamFloat _deceleration_hor_slow; /**< slow velocity setpoint slewrate for manual deceleration*/
-	control::BlockParamFloat _acceleration_z_max_up; /** max acceleration up */
+	control::BlockParamFloat _deceleration_hor_slow; /**< slow velocity setpoint slewrate for manual deceleration*/ >>
+			control::BlockParamFloat _acceleration_z_max_up; /** max acceleration up */
 	control::BlockParamFloat _acceleration_z_max_down; /** max acceleration down */
 	control::BlockParamFloat _cruise_speed_90; /**<speed when angle is 90 degrees between prev-current/current-next*/
 	control::BlockParamFloat _velocity_hor_manual; /**< target velocity in manual controlled mode at full speed*/
@@ -2056,10 +2056,6 @@ void MulticopterPositionControl::control_auto(float dt)
 
 						/* set target threshold to half dist pre-current */
 						target_threshold = vec_prev_to_current.length() * 0.5f;
-
-						if ((target_threshold - _nav_rad.get()) < SIGMA_NORM) {
-							target_threshold = _nav_rad.get();
-						}
 
 						/* velocity close to current setpoint with default zero if no next setpoint is available */
 						float vel_close = 0.0f;
