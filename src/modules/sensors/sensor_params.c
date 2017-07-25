@@ -3552,7 +3552,7 @@ PARAM_DEFINE_FLOAT(RC_FLT_CUTOFF, 10.0f);
 * controllers, not the estimators. 0 disables the filter.
 *
 * @min 5
-* @max 30
+* @max 1000
 * @unit Hz
 * @reboot_required true
 * @group Sensor Calibration
