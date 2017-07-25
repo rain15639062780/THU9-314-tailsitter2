@@ -1030,8 +1030,13 @@ protected:
 			msg.lat = gps.lat;
 			msg.lon = gps.lon;
 			msg.alt = gps.alt;
-			msg.eph = gps.hdop * 100; //cm_uint16_from_m_float(gps.eph);
-			msg.epv = gps.vdop * 100; //cm_uint16_from_m_float(gps.epv);
+			msg.alt_ellipsoid = gps.alt_ellipsoid;
+			msg.eph = gps.hdop * 100;
+			msg.epv = gps.vdop * 100;
+			msg.h_acc = gps.eph * 1e3f;
+			msg.v_acc = gps.epv * 1e3f;
+			msg.vel_acc = gps.s_variance_m_s * 1e3f;
+			msg.hdg_acc = gps.c_variance_rad * 1e5f / M_DEG_TO_RAD_F;
 			msg.vel = cm_uint16_from_m_float(gps.vel_m_s),
 			    msg.cog = _wrap_2pi(gps.cog_rad) * M_RAD_TO_DEG_F * 1e2f,
 				msg.satellites_visible = gps.satellites_used;
@@ -1178,6 +1183,11 @@ public:
 		return new MavlinkStreamADSBVehicle(mavlink);
 	}
 
+	virtual bool const_rate()
+	{
+		return true;
+	}
+
 	unsigned get_size()
 	{
 		return (_pos_time > 0) ? MAVLINK_MSG_ID_ADSB_VEHICLE_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES : 0;
@@ -1201,7 +1211,7 @@ protected:
 	{
 		struct transponder_report_s pos;
 
-		if (_pos_sub->update(&_pos_time, &pos)) {
+		while (_pos_sub->update(&_pos_time, &pos)) {
 			mavlink_adsb_vehicle_t msg = {};
 
 			msg.ICAO_address = pos.ICAO_address;
@@ -1354,25 +1364,26 @@ protected:
 
 			/* ensure that only active trigger events are sent */
 			if (trigger.timestamp > 0) {
+
 				mavlink_msg_camera_trigger_send_struct(_mavlink->get_channel(), &msg);
 
-				/* send MAV_CMD_IMAGE_START_CAPTURE */
-				mavlink_command_long_t msg_cmd;
+				vehicle_command_s cmd{};
 
-				msg_cmd.target_system = mavlink_system.sysid;
-				msg_cmd.target_component = MAV_COMP_ID_CAMERA;
-				msg_cmd.command = MAV_CMD_IMAGE_START_CAPTURE;
-				msg_cmd.confirmation = 0;
-				msg_cmd.param1 = 0; // all cameras
-				msg_cmd.param2 = 0; // duration 0 because only taking one picture
-				msg_cmd.param3 = 1; // only take one
-				msg_cmd.param4 = NAN;
-				msg_cmd.param5 = NAN;
-				msg_cmd.param6 = NAN;
-				msg_cmd.param7 = NAN;
+				cmd.target_system = mavlink_system.sysid;
+				cmd.target_component = MAV_COMP_ID_CAMERA;
+				cmd.command = MAV_CMD_IMAGE_START_CAPTURE;
+				cmd.confirmation = 0;
+				cmd.param1 = 0; // all cameras
+				cmd.param2 = 0; // duration 0 because only taking one picture
+				cmd.param3 = 1; // only take one
+				cmd.param4 = NAN;
+				cmd.param5 = NAN;
+				cmd.param6 = NAN;
+				cmd.param7 = NAN;
 
-				mavlink_msg_command_long_send_struct(_mavlink->get_channel(), &msg_cmd);
+				MavlinkCommandSender::instance().handle_vehicle_command(cmd, _mavlink->get_channel());
 
+				// TODO: move this camera_trigger and publish as a vehicle_command
 				/* send MAV_CMD_DO_DIGICAM_CONTROL*/
 				mavlink_command_long_t digicam_ctrl_cmd;
 
