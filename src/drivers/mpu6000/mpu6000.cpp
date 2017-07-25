@@ -694,7 +694,7 @@ MPU6000::init()
 
 	if (imu_cut_ph != PARAM_INVALID && param_get(imu_cut_ph, &imu_cut) == 0) {
 		param_get(imu_cut_ph, &imu_cut);
-		warnx("imu cutoff set to %10.2f Hz", double(imu_cut));
+		PX4_INFO("imu cutoff set to %10.2f Hz", double(imu_cut));
 		_accel_filter_x.set_cutoff_frequency(MPU6000_ACCEL_DEFAULT_RATE, imu_cut);
 		_accel_filter_y.set_cutoff_frequency(MPU6000_ACCEL_DEFAULT_RATE, imu_cut);
 		_accel_filter_z.set_cutoff_frequency(MPU6000_ACCEL_DEFAULT_RATE, imu_cut);
