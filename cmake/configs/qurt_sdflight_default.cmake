@@ -95,6 +95,7 @@ set(config_module_list
 	lib/version
 	lib/DriverFramework/framework
 	lib/micro-CDR
+	lib/wind_estimator
 
 	#
 	# QuRT port
