@@ -279,6 +279,47 @@ MissionBlock::is_mission_item_reached()
 				}
 			}
 
+		} else if (_mission_item.nav_cmd == NAV_CMD_CONDITION_GATE) {
+
+			// default to true as a number of geometric corner cases
+			// might prevent reaching the gate - we only set this to false
+			// if we are able to show that the gate conditions are feasible
+			bool gate_reached = true;
+
+			struct position_setpoint_s *curr_sp = &_navigator->get_position_setpoint_triplet()->current;
+
+			// if either is not valid the gate is reached
+			if (curr_sp->valid) {
+
+				// zero is the current gate position
+				matrix::Vector2f gate_sp(0, 0);
+				struct map_projection_reference_s ref_pos;
+				map_projection_init(&ref_pos, _mission_item.lat, _mission_item.lon);
+
+				matrix::Vector2f gate_to_curr_sp;
+				map_projection_project(&ref_pos, curr_sp->lat, curr_sp->lon, &gate_to_curr_sp(0), &gate_to_curr_sp(1));
+				matrix::Vector2f vehicle_pos;
+				map_projection_project(&ref_pos, _navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
+						       &vehicle_pos(0), &vehicle_pos(1));
+				float res = vehicle_pos.dot(gate_to_curr_sp.normalized());
+
+				// if the dot product (projected vector) is positive, then
+				// the current position is between the gate position and the
+				// next waypoint
+				if (res >= 0) {
+					gate_reached = true;
+
+				} else {
+					gate_reached = false;
+				}
+			}
+
+			if (gate_reached) {
+				_waypoint_position_reached = true;
+				_waypoint_yaw_reached = true;
+				_time_wp_reached = now;
+			}
+
 		} else if (_mission_item.nav_cmd == NAV_CMD_DELAY) {
 			_waypoint_position_reached = true;
 			_waypoint_yaw_reached = true;
@@ -450,12 +491,9 @@ void
 MissionBlock::issue_command(const struct mission_item_s *item)
 {
 
-	if (item_contains_position(item)) {
-		return;
-	}
-
-	// NAV_CMD_DO_LAND_START is only a marker
-	if (item->nav_cmd == NAV_CMD_DO_LAND_START) {
+	if (item_contains_position(item)
+	    || item_contains_gate(item)
+	    || item_contains_marker(item)) {
 		return;
 	}
 
@@ -507,6 +545,18 @@ MissionBlock::item_contains_position(const struct mission_item_s *item)
 	       item->nav_cmd == NAV_CMD_LOITER_TO_ALT ||
 	       item->nav_cmd == NAV_CMD_VTOL_TAKEOFF ||
 	       item->nav_cmd == NAV_CMD_VTOL_LAND;
+}
+
+bool
+MissionBlock::item_contains_gate(const struct mission_item_s *item)
+{
+	return item->nav_cmd == NAV_CMD_CONDITION_GATE;
+}
+
+bool
+MissionBlock::item_contains_marker(const struct mission_item_s *item)
+{
+	return item->nav_cmd == NAV_CMD_DO_LAND_START;
 }
 
 bool

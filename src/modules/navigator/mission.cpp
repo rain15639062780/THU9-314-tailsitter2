@@ -430,13 +430,16 @@ Mission::set_mission_items()
 
 	/* mission item that comes after current if available */
 	struct mission_item_s mission_item_next_position;
+	struct mission_item_s mission_item_next_next_position;
 	bool has_next_position_item = false;
+	bool has_next_next_position_item = false;
 
 	work_item_type new_work_item_type = WORK_ITEM_TYPE_DEFAULT;
 
 	/* try setting onboard mission item */
 	if (_param_onboard_enabled.get()
-	    && prepare_mission_items(true, &_mission_item, &mission_item_next_position, &has_next_position_item)) {
+	    && prepare_mission_items(true, &_mission_item, &mission_item_next_position, &has_next_position_item,
+				     &mission_item_next_next_position, &has_next_next_position_item)) {
 
 		/* if mission type changed, notify */
 		if (_mission_type != MISSION_TYPE_ONBOARD) {
@@ -448,7 +451,8 @@ Mission::set_mission_items()
 
 		/* try setting offboard mission item */
 
-	} else if (prepare_mission_items(false, &_mission_item, &mission_item_next_position, &has_next_position_item)) {
+	} else if (prepare_mission_items(false, &_mission_item, &mission_item_next_position, &has_next_position_item,
+					 &mission_item_next_next_position, &has_next_next_position_item)) {
 		/* if mission type changed, notify */
 		if (_mission_type != MISSION_TYPE_OFFBOARD) {
 			mavlink_log_info(_navigator->get_mavlink_log_pub(), "Executing mission.");
@@ -615,11 +619,17 @@ Mission::set_mission_items()
 
 			_mission_item.nav_cmd = NAV_CMD_DO_VTOL_TRANSITION;
 			_mission_item.params[0] = vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW;
-			_mission_item.yaw = _navigator->get_global_position()->yaw;
 
-			/* set position setpoint to target during the transition */
-			// TODO: if has_next_position_item and use_next set next, or if use_heading set generated
-			generate_waypoint_from_heading(&pos_sp_triplet->current, _mission_item.yaw);
+			if (has_next_position_item) {
+				/* got next mission item, update setpoint triplet */
+				mission_item_to_position_setpoint(&mission_item_next_position, &pos_sp_triplet->current);
+
+			} else {
+				_mission_item.yaw = _navigator->get_global_position()->yaw;
+
+				/* set position setpoint to target during the transition */
+				generate_waypoint_from_heading(&pos_sp_triplet->current, _mission_item.yaw);
+			}
 		}
 
 		/* takeoff completed and transitioned, move to takeoff wp as fixed wing */
@@ -775,12 +785,27 @@ Mission::set_mission_items()
 			_mission_item.autocontinue = true;
 			_mission_item.time_inside = 0;
 		}
+
+		if (_mission_item.nav_cmd == NAV_CMD_CONDITION_GATE) {
+			_mission_item.autocontinue = true;
+			_mission_item.time_inside = 0;
+		}
 	}
 
 	/*********************************** set setpoints and check next *********************************************/
 
 	/* set current position setpoint from mission item (is protected against non-position items) */
-	mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
+	if (item_contains_gate(&_mission_item)) {
+		if (has_next_position_item) {
+			/* we have a new position item so set previous position setpoint to current */
+			set_previous_pos_setpoint();
+			/* got next mission item, update setpoint triplet */
+			mission_item_to_position_setpoint(&mission_item_next_position, &pos_sp_triplet->current);
+		}
+
+	} else {
+		mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
+	}
 
 	/* issue command if ready (will do nothing for position mission items) */
 	issue_command(&_mission_item);
@@ -802,20 +827,31 @@ Mission::set_mission_items()
 		set_current_offboard_mission_item();
 	}
 
-	if (_mission_item.autocontinue && get_time_inside(_mission_item) < FLT_EPSILON) {
-		/* try to process next mission item */
-		if (has_next_position_item) {
+	if (item_contains_gate(&_mission_item)) {
+		if (has_next_next_position_item) {
 			/* got next mission item, update setpoint triplet */
-			mission_item_to_position_setpoint(&mission_item_next_position, &pos_sp_triplet->next);
+			mission_item_to_position_setpoint(&mission_item_next_next_position, &pos_sp_triplet->next);
 
 		} else {
-			/* next mission item is not available */
 			pos_sp_triplet->next.valid = false;
 		}
 
 	} else {
-		/* vehicle will be paused on current waypoint, don't set next item */
-		pos_sp_triplet->next.valid = false;
+		if (_mission_item.autocontinue && get_time_inside(_mission_item) < FLT_EPSILON) {
+			/* try to process next mission item */
+			if (has_next_position_item) {
+				/* got next mission item, update setpoint triplet */
+				mission_item_to_position_setpoint(&mission_item_next_position, &pos_sp_triplet->next);
+
+			} else {
+				/* next mission item is not available */
+				pos_sp_triplet->next.valid = false;
+			}
+
+		} else {
+			/* vehicle will be paused on current waypoint, don't set next item */
+			pos_sp_triplet->next.valid = false;
+		}
 	}
 
 	/* Save the distance between the current sp and the previous one */
@@ -1178,7 +1214,8 @@ Mission::do_abort_landing()
 
 bool
 Mission::prepare_mission_items(bool onboard, struct mission_item_s *mission_item,
-			       struct mission_item_s *next_position_mission_item, bool *has_next_position_item)
+			       struct mission_item_s *next_position_mission_item, bool *has_next_position_item,
+			       struct mission_item_s *next_next_position_mission_item, bool *has_next_next_position_item)
 {
 	bool first_res = false;
 	int offset = 1;
@@ -1189,13 +1226,24 @@ Mission::prepare_mission_items(bool onboard, struct mission_item_s *mission_item
 
 		/* trying to find next position mission item */
 		while (read_mission_item(onboard, offset, next_position_mission_item)) {
+			offset++;
 
 			if (item_contains_position(next_position_mission_item)) {
 				*has_next_position_item = true;
 				break;
 			}
+		}
 
-			offset++;
+		if (next_next_position_mission_item && has_next_next_position_item) {
+			/* trying to find next next position mission item */
+			while (read_mission_item(onboard, offset, next_next_position_mission_item)) {
+				offset++;
+
+				if (item_contains_position(next_next_position_mission_item)) {
+					*has_next_next_position_item = true;
+					break;
+				}
+			}
 		}
 	}
 
