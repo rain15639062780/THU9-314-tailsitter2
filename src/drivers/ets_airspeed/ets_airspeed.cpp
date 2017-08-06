@@ -177,6 +177,7 @@ ETSAirspeed::collect()
 	report.differential_pressure_filtered_pa = diff_pres_pa_raw;
 	report.differential_pressure_raw_pa = diff_pres_pa_raw;
 	report.temperature = -1000.0f;
+	report.device_id = _device_id.devid;
 
 	if (_airspeed_pub != nullptr && !(_pub_blocked)) {
 		/* publish it */
