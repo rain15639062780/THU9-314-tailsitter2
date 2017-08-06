@@ -1339,6 +1339,10 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->yaw = _wrap_pi(mavlink_mission_item->param4 * M_DEG_TO_RAD_F);
 			break;
 
+		case MAV_CMD_CONDITION_GATE:
+			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
+			break;
+
 		case MAV_CMD_NAV_FENCE_RETURN_POINT:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			break;
@@ -1410,6 +1414,8 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 		case MAV_CMD_DO_VTOL_TRANSITION:
 		case MAV_CMD_NAV_DELAY:
 		case MAV_CMD_NAV_RETURN_TO_LAUNCH:
+		case MAV_CMD_CONDITION_DELAY:
+		case MAV_CMD_CONDITION_DISTANCE:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			break;
 
