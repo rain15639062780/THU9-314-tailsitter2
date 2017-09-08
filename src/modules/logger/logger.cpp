@@ -748,9 +748,9 @@ void Logger::run()
 		if (subscription.metadata->o_size > max_msg_size) {
 			max_msg_size = subscription.metadata->o_size;
 		}
-	}
+	}//计算总大小
 
-	max_msg_size += sizeof(ulog_message_data_header_s);
+	max_msg_size += sizeof(ulog_message_data_header_s);//加入文件头大小
 
 	if (sizeof(ulog_message_logging_s) > max_msg_size) {
 		max_msg_size = sizeof(ulog_message_logging_s);
@@ -772,13 +772,13 @@ void Logger::run()
 			PX4_ERR("failed to alloc message buffer");
 			return;
 		}
-	}
+	}//尝试分配
 
 
 	if (!_writer.init()) {
 		PX4_ERR("writer init failed");
 		return;
-	}
+	}//初始化
 
 #ifdef DBGPRINT
 	hrt_abstime	timer_start = 0;
@@ -1321,12 +1321,12 @@ void Logger::start_log_file()
 	_writer.start_log_file(file_name);
 	_writer.select_write_backend(LogWriter::BackendFile);
 	_writer.set_need_reliable_transfer(true);
-	write_header();
-	write_version();
-	write_formats();
-	write_parameters();
+	write_header();//写入文件头
+	write_version();//写入版本号
+	write_formats();//写入格式
+	write_parameters();//写入参数
 	write_perf_data(true);
-	write_all_add_logged_msg();
+	write_all_add_logged_msg();//写入加入的消息
 	_writer.set_need_reliable_transfer(false);
 	_writer.unselect_write_backend();
 	_writer.notify();
