@@ -242,6 +242,8 @@ void Tailsitter::update_transition_state()
     float yaw_test = euler.psi();
 	if (!_flag_was_in_trans_mode) {
 		// save desired heading for transition and last thrust value
+	    //_yaw_transition=_v_att_sp->yaw_body
+	    //
 		_yaw_transition = yaw_test;
 		_pitch_transition_start = _v_att_sp->pitch_body;
 		_thrust_transition_start = _v_att_sp->thrust;
