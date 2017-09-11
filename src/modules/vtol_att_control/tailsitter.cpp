@@ -242,10 +242,11 @@ void Tailsitter::update_transition_state()
     float yaw_test = euler.psi();
 	if (!_flag_was_in_trans_mode) {
 		// save desired heading for transition and last thrust value
-		_yaw_transition = _v_att_sp->yaw_body;
+		_yaw_transition = yaw_test;
 		_pitch_transition_start = _v_att_sp->pitch_body;
 		_thrust_transition_start = _v_att_sp->thrust;
 		_flag_was_in_trans_mode = true;
+
 	}
 
 	if (_vtol_schedule.flight_mode == TRANSITION_FRONT_P1) {
@@ -275,6 +276,8 @@ void Tailsitter::update_transition_state()
 
 		_mc_roll_weight = 1.0f;
 		_mc_pitch_weight = 1.0f;
+		//xj-zhang
+		_v_att_sp->yaw_body=_yaw_transition;
 
 	} else if (_vtol_schedule.flight_mode == TRANSITION_FRONT_P2) {
 		// the plane is ready to go into fixed wing mode, smoothly switch the actuator controls, keep pitching down
@@ -311,7 +314,8 @@ void Tailsitter::update_transition_state()
 
 		/** keep yaw disabled */
 		_mc_yaw_weight = 0.0f;
-
+		//xj-zhang
+		_v_att_sp->yaw_body=_yaw_transition;
 
 	} else if (_vtol_schedule.flight_mode == TRANSITION_BACK) {
 
@@ -333,8 +337,8 @@ void Tailsitter::update_transition_state()
 		/** keep yaw disabled */
 		//_mc_yaw_weight = 0.0f;
         
-        //test
-		 _yaw_transition=yaw_test;
+        //xj-zhang test
+		_v_att_sp->yaw_body=_yaw_transition;
 
 		/** smoothly move control weight to MC */
 		_mc_roll_weight = 1.0f * (float)hrt_elapsed_time(&_vtol_schedule.transition_start) /
@@ -357,7 +361,8 @@ void Tailsitter::update_transition_state()
 
 	_v_att_sp->timestamp = hrt_absolute_time();
 	_v_att_sp->roll_body = 0.0f;
-    _v_att_sp->yaw_body = _yaw_transition;
+    //xj-zhang
+	//_v_att_sp->yaw_body = _yaw_transition;
   
 
 	math::Quaternion q_sp;

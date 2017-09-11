@@ -2346,6 +2346,12 @@ MulticopterPositionControl::task_main()
 				_att_sp_pub = orb_advertise(_attitude_setpoint_id, &_att_sp);
 			}
 		}
+		//xj-zhang add
+		else
+		{
+		    _att_sp.yaw_body = _yaw;
+		    _att_sp.yaw_sp_move_rate = 0.0f;
+		}
 
 		/* reset altitude controller integral (hovering throttle) to manual throttle after manual throttle control */
 		_reset_int_z_manual = _control_mode.flag_armed && _control_mode.flag_control_manual_enabled
