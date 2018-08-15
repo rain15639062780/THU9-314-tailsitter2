@@ -108,7 +108,7 @@ PARAM_DEFINE_INT32(VT_ELEV_MC_LOCK, 1);
  * @decimal 2
  * @group VTOL Attitude Control
  */
-PARAM_DEFINE_FLOAT(VT_F_TRANS_DUR, 5.0f);
+PARAM_DEFINE_FLOAT(VT_F_TRANS_DUR, 4.0f);
 
 /**
  * Duration of a back transition
@@ -122,7 +122,7 @@ PARAM_DEFINE_FLOAT(VT_F_TRANS_DUR, 5.0f);
  * @decimal 2
  * @group VTOL Attitude Control
  */
-PARAM_DEFINE_FLOAT(VT_B_TRANS_DUR, 8.0f);
+PARAM_DEFINE_FLOAT(VT_B_TRANS_DUR, 4.0f);
 
 /**
  * Target throttle value for the transition to fixed wing flight.

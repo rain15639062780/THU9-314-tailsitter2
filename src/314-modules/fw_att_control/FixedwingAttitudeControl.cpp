@@ -530,6 +530,17 @@ void FixedwingAttitudeControl::run()
 
 			_airspeed_sub.update();
 			vehicle_setpoint_poll();
+			//xj-zhang add fw control in tailsitter transition mode
+			if(_vehicle_status.in_transition_mode&& _parameters.vtol_type == vtol_type::TAILSITTER){
+				matrix::Dcmf R_offset = Eulerf(0, M_PI_2_F, 0);
+				matrix::Dcmf R_sp= matrix::Quatf(_att_sp.q_d);
+				R_sp = R_sp * R_offset;
+				matrix::Eulerf fw_sp(R_sp);
+				_att_sp.roll_body=fw_sp(0);
+				_att_sp.pitch_body=fw_sp(1);
+				_att_sp.yaw_body=fw_sp(2);
+				Quatf(R_sp).copyTo(_att_sp.q_d);
+			}
 			vehicle_control_mode_poll();
 			vehicle_manual_poll();
 			global_pos_poll();

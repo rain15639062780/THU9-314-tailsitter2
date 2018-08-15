@@ -201,8 +201,8 @@ void Tailsitter::update_transition_state()
 			_mc_yaw_weight = 1.0f;
 		}
 
-		_mc_roll_weight = 1.0f;
-		_mc_pitch_weight = 1.0f;
+		_mc_roll_weight = 1.0f-time_since_trans_start / _params->front_trans_duration;
+		_mc_pitch_weight = (1.0f-time_since_trans_start / _params->front_trans_duration)*0.5f+0.5f;
 
 	} else if (_vtol_schedule.flight_mode == TRANSITION_BACK) {
 
@@ -221,10 +221,7 @@ void Tailsitter::update_transition_state()
 		_mc_yaw_weight = 0.0f;
 
 		// smoothly move control weight to MC
-		_mc_roll_weight = _mc_pitch_weight = time_since_trans_start / _params->back_trans_duration;
-		//xj-zhang
-		_mc_pitch_weight =1;
-
+		_mc_roll_weight = _mc_pitch_weight = (time_since_trans_start / _params->back_trans_duration);
 	}
 
 	if (_v_control_mode->flag_control_climb_rate_enabled) {
@@ -301,8 +298,8 @@ void Tailsitter::fill_actuator_outputs()
 
 	case FIXED_WING:
 		// in fixed wing mode we use engines only for providing thrust, no moments are generated
-		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] =  _actuators_fw_in->control[actuator_controls_s::INDEX_YAW];	// yaw
-		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = _actuators_fw_in->control[actuator_controls_s::INDEX_PITCH]*1.0f;
+		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] =  0;//_actuators_fw_in->control[actuator_controls_s::INDEX_YAW];	// yaw
+		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = 0;//_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH]*1.0f;
 		_actuators_out_0->control[actuator_controls_s::INDEX_YAW] = 0;
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE];
@@ -320,20 +317,19 @@ void Tailsitter::fill_actuator_outputs()
 	case TRANSITION_TO_FW:
 	case TRANSITION_TO_MC:
 		// in transition engines are mixed by weight (BACK TRANSITION ONLY)
-		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = _actuators_mc_in->control[actuator_controls_s::INDEX_ROLL]* _mc_roll_weight;
-		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] =
-			_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
-			//_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] *(1 - _mc_pitch_weight);
-		_actuators_out_0->control[actuator_controls_s::INDEX_YAW] = _actuators_mc_in->control[actuator_controls_s::INDEX_YAW] *
-				_mc_yaw_weight;
+		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = 0;//_actuators_mc_in->control[actuator_controls_s::INDEX_ROLL]* _mc_roll_weight;
+		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] =_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight+
+		_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] *(1 - _mc_pitch_weight);
+		_actuators_out_0->control[actuator_controls_s::INDEX_YAW] = _actuators_mc_in->control[actuator_controls_s::INDEX_YAW] *_mc_yaw_weight;
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_mc_in->control[actuator_controls_s::INDEX_THROTTLE];
 
 		// NOTE: There is no mistake in the line below, multicopter yaw axis is controlled by elevon roll actuation!
-		_actuators_out_1->control[actuator_controls_s::INDEX_ROLL] = -_actuators_fw_in->control[actuator_controls_s::INDEX_ROLL]
-				* (1 - _mc_yaw_weight);
+		_actuators_out_1->control[actuator_controls_s::INDEX_ROLL] =
+		-_actuators_fw_in->control[actuator_controls_s::INDEX_ROLL]* (1 - _mc_yaw_weight);
 		_actuators_out_1->control[actuator_controls_s::INDEX_PITCH] =
-			_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight;
+			//_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight+
+			_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] *(1 - _mc_pitch_weight);
 		 //(_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] + _params->fw_pitch_trim) *(1 - _mc_pitch_weight);
 		_actuators_out_1->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE];

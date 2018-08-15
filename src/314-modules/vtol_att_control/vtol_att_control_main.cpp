@@ -722,7 +722,7 @@ void VtolAttitudeControl::task_main()
 			_vtol_type->update_transition_state();
 			fill_mc_att_rates_sp();
 			//xj-zhang
-			//fill_fw_att_rates_sp();
+			fill_fw_att_rates_sp();
 		}
 
 		_vtol_type->fill_actuator_outputs();

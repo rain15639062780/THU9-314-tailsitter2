@@ -1834,7 +1834,7 @@ FixedwingPositionControl::tecs_update_pitch_throttle(float alt_sp, float airspee
 	//xj-zhang
 	// altitude setpoint decrease per second
 	float alt_sp_de=0.5;
-
+	float symbol=1.0f;
 	// do not run TECS if vehicle is a VTOL and we are in rotary wing mode or in transition
 	// (it should also not run during VTOL blending because airspeed is too low still)
 	if (_vehicle_status.is_vtol) {
@@ -1858,16 +1858,15 @@ FixedwingPositionControl::tecs_update_pitch_throttle(float alt_sp, float airspee
 			_asp_after_transition = constrain(_asp_after_transition, _parameters.airspeed_min, _parameters.airspeed_max);
 			//xj-zhang
 			_time_after_transition = _last_tecs_update;
-			_alt_after_transition = _global_pos.alt;
-
+			_alt_after_transition = _global_pos.alt-alt_sp;
 		} else if (_was_in_transition) {
 			// after transition we ramp up desired airspeed from the speed we had coming out of the transition
 			_asp_after_transition += dt * 2; // increase 2m/s
-
 			if (_asp_after_transition < airspeed_sp && _airspeed < airspeed_sp) {
 				airspeed_sp = max(_asp_after_transition, _airspeed);
 
-			} else {
+			}
+			else {
 				_was_in_transition = false;
 				_asp_after_transition = 0;
 			}
@@ -1876,9 +1875,11 @@ FixedwingPositionControl::tecs_update_pitch_throttle(float alt_sp, float airspee
 		//xj-zhang
 		if((_time_after_transition!=0)&&(_time_after_transition<_last_tecs_update)){
 			float delat_T=(_last_tecs_update-_time_after_transition)* 1e-6;
-			float alt_sp_temp=_alt_after_transition-alt_sp_de*delat_T;
-			if(alt_sp_temp>alt_sp){
-				alt_sp=alt_sp_temp;
+			float abs_felta_alt=(float)fabs(_alt_after_transition);
+			symbol=_alt_after_transition/abs_felta_alt;
+			float alt_sp_temp=abs_felta_alt-alt_sp_de*delat_T;
+			if(alt_sp_temp>0){
+				alt_sp=alt_sp+symbol*alt_sp_temp;
 			}
 		}
 	}
