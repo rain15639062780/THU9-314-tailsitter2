@@ -530,6 +530,11 @@ void FixedwingAttitudeControl::run()
 
 			_airspeed_sub.update();
 			vehicle_setpoint_poll();
+			vehicle_control_mode_poll();
+			vehicle_manual_poll();
+			global_pos_poll();
+			vehicle_status_poll();
+			vehicle_land_detected_poll();
 			//xj-zhang add fw control in tailsitter transition mode
 			if(_vehicle_status.in_transition_mode&& _parameters.vtol_type == vtol_type::TAILSITTER){
 				matrix::Dcmf R_offset = Eulerf(0, M_PI_2_F, 0);
@@ -540,12 +545,8 @@ void FixedwingAttitudeControl::run()
 				_att_sp.pitch_body=fw_sp(1);
 				_att_sp.yaw_body=fw_sp(2);
 				Quatf(R_sp).copyTo(_att_sp.q_d);
+				PX4_INFO("pitch setpoint=%0.4f",(double)_att_sp.pitch_body);
 			}
-			vehicle_control_mode_poll();
-			vehicle_manual_poll();
-			global_pos_poll();
-			vehicle_status_poll();
-			vehicle_land_detected_poll();
 
 			// the position controller will not emit attitude setpoints in some modes
 			// we need to make sure that this flag is reset

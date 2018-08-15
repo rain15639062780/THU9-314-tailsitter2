@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2018 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,25 +31,9 @@
 #
 ############################################################################
 
-px4_add_git_submodule(TARGET git_ecl PATH "ecl")
-px4_add_git_submodule(TARGET git_matrix PATH "matrix")
+px4_add_library(FlightTaskAutoMapper
+	FlightTaskAutoMapper.cpp
+)
 
-add_subdirectory(airspeed)
-add_subdirectory(battery)
-add_subdirectory(bezier)
-add_subdirectory(circuit_breaker)
-add_subdirectory(controllib)
-add_subdirectory(conversion)
-add_subdirectory(drivers)
-add_subdirectory(ecl)
-add_subdirectory(314-lib/FlightTasks)
-add_subdirectory(led)
-add_subdirectory(mathlib)
-add_subdirectory(mixer)
-add_subdirectory(perf)
-add_subdirectory(pid)
-add_subdirectory(pwm_limit)
-add_subdirectory(rc)
-add_subdirectory(terrain_estimation)
-add_subdirectory(tunes)
-add_subdirectory(version)
+target_link_libraries(FlightTaskAutoMapper PUBLIC FlightTaskAuto)
+target_include_directories(FlightTaskAutoMapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

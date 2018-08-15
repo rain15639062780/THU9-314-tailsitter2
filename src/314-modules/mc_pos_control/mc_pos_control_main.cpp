@@ -65,7 +65,7 @@
 
 #include <controllib/blocks.hpp>
 
-#include <lib/FlightTasks/FlightTasks.hpp>
+#include <lib/314-lib/FlightTasks/FlightTasks.hpp>
 #include "PositionControl.hpp"
 #include "Utility/ControlMath.hpp"
 
@@ -165,7 +165,7 @@ private:
 	//xj-zhang keep altitude after transition
 	bool _was_in_transition{false};
 	hrt_abstime _time_after_transition{0};
-	hrt_abstime _time_keep{5000000};
+	float _time_keep{3.0f};
 
 
 	/**
@@ -658,9 +658,10 @@ MulticopterPositionControl::task_main()
 					_was_in_transition = true;
 					_time_after_transition=hrt_absolute_time();
 				}else if (_was_in_transition) {
-					if(hrt_absolute_time()-_time_after_transition<_time_keep){
-						setpoint.z=_local_pos.z;
-						setpoint.yaw=_local_pos.yaw;
+					float  time_after=(hrt_absolute_time()-_time_after_transition)*1e-6f;
+					if(time_after<_time_keep){
+						setpoint.z=_local_pos.z-(1-time_after/_time_keep)*10;
+						_flight_tasks._reset_yaw_setpoint();
 					}
 					else{
 						_was_in_transition=false;
@@ -709,6 +710,12 @@ MulticopterPositionControl::task_main()
 
 			// Fill attitude setpoint. Attitude is computed from yaw and thrust setpoint.
 			_att_sp = ControlMath::thrustToAttitude(thr_sp, _control.getYawSetpoint());
+			//xj-zhang
+			if (_vehicle_status.is_vtol) {
+				if((!_vehicle_status.in_transition_mode)&&_was_in_transition){
+					_att_sp.roll_body=_att_sp.pitch_body=0.0f;
+				}
+			}
 			_att_sp.yaw_sp_move_rate = _control.getYawspeedSetpoint();
 			_att_sp.fw_control_yaw = false;
 			_att_sp.disable_mc_yaw_control = false;

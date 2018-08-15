@@ -47,8 +47,8 @@ param set SYS_AUTOSTART 13003
 param set SYS_MC_EST_GROUP 2
 param set SYS_RESTART_TYPE 2
 param set VT_TYPE 0
-param set VT_F_TRANS_DUR 1.5
-param set VT_B_TRANS_DUR 3.0
+param set VT_F_TRANS_DUR 3.0
+param set VT_B_TRANS_DUR 5.0
 param set VT_F_TRANS_THR 0.7
 #param set FW_P_TC 0.5
 #param set FW_PR_FF 0.3

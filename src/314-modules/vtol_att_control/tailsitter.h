@@ -73,8 +73,10 @@ private:
 
 	enum vtol_mode {
 		MC_MODE = 0,			/**< vtol is in multicopter mode */
-		TRANSITION_FRONT_P1,	/**< vtol is in front transition part 1 mode */
-		TRANSITION_BACK,		/**< vtol is in back transition mode */
+		TRANSITION_FRONT_P1,	/**< vtol is in front transition part 1 mode *///xj-zhang
+		TRANSITION_FRONT_P2,	/**<vtol is in front transition part 2mode */
+		TRANSITION_BACK_P1,		/**< vtol is in back transition mode part 1*/
+		TRANSITION_BACK_P2,		/**< vtol is in back transition mode part 2*/
 		FW_MODE					/**< vtol is in fixed wing mode */
 	};
 
@@ -86,6 +88,9 @@ private:
 	float _thrust_transition_start; // throttle value when we start the front transition
 	float _yaw_transition;	// yaw angle in which transition will take place
 	float _pitch_transition_start;  // pitch angle at the start of transition (tailsitter)
+	//xj-zhang
+	float _pitch_transition_start_p2{0.0f};// pitch angle at the start of transition P2 (tailsitter)
+	hrt_abstime _time_transition_start_p2{0};
 
 	/**
 	 * Update parameters.
