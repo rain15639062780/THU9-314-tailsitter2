@@ -657,11 +657,14 @@ MulticopterPositionControl::task_main()
 				if(_vehicle_status.in_transition_mode){
 					_was_in_transition = true;
 					_time_after_transition=hrt_absolute_time();
+					_flight_tasks._reset_yaw_setpoint();
+					_flight_tasks._reset_z_setpoint();
 				}else if (_was_in_transition) {
 					float  time_after=(hrt_absolute_time()-_time_after_transition)*1e-6f;
 					if(time_after<_time_keep){
 						setpoint.z=_local_pos.z-(1-time_after/_time_keep)*10;
 						_flight_tasks._reset_yaw_setpoint();
+						_flight_tasks._reset_z_setpoint();
 					}
 					else{
 						_was_in_transition=false;

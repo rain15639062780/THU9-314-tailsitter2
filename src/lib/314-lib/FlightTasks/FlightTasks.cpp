@@ -199,3 +199,7 @@ void FlightTasks::_reset_yaw_setpoint()
 {
 	_current_task.task->_reset_yaw_setpoints();
 }
+void FlightTasks::_reset_z_setpoint()
+{
+	_current_task.task->_reset_z_setpoints();
+}

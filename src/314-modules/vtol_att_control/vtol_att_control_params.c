@@ -327,3 +327,13 @@ PARAM_DEFINE_INT32(VT_WV_LND_EN, 0);
  * @group VTOL Attitude Control
  */
 PARAM_DEFINE_INT32(VT_FW_MOT_OFFID, 0);
+/**
+ * The min thrust setpoint in transition ,tailsitter
+ *
+ * @min 0
+ * @max 1.0
+ * @increment 0.1
+ * @decimal 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_TRANS_THR_MIN, 0.3);

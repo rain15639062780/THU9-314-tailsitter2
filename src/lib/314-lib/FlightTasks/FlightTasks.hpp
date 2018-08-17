@@ -126,6 +126,7 @@ public:
 	const char *errorToString(const int error);
 	//xj-zhang
 	void _reset_yaw_setpoint();
+	void _reset_z_setpoint();
 
 private:
 

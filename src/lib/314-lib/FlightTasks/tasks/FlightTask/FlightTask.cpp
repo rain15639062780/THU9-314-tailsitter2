@@ -77,6 +77,10 @@ void FlightTask::_reset_yaw_setpoints()
 	_yaw_setpoint=_yaw;
 	_yawspeed_setpoint=0;
 }
+void FlightTask::_reset_z_setpoints()
+{
+	_position_setpoint(2)=_position(2);
+}
 void FlightTask::_resetSetpoints()
 {
 	_position_setpoint *= NAN;
