@@ -337,3 +337,24 @@ PARAM_DEFINE_INT32(VT_FW_MOT_OFFID, 0);
  * @group VTOL Attitude Control
  */
 PARAM_DEFINE_FLOAT(VT_TRANS_THR_MIN, 0.3);
+/**
+ * Fixed wing pitch trim
+ *
+ * This parameter allows to adjust the neutral elevon position in fixed wing mode.
+ *
+ * @min -1.0
+ * @max 1.0
+ * @increment 0.01
+ * @decimal 2
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_FW_PITCH_TRIM, 0.0f);
+/**
+ * turn off small motors
+ *
+ * If set to 1 , pilot can use  flag to contorl small rotors
+ *
+ * @boolean
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(VT_MOT_OFF_TEST, 0);

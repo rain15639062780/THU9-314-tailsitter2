@@ -114,7 +114,8 @@ public:
 	struct vehicle_local_position_s 		*get_local_pos() {return &_local_pos;}
 	struct vehicle_local_position_setpoint_s	*get_local_pos_sp() {return &_local_pos_sp;}
 	struct vtol_vehicle_status_s			*get_vtol_vehicle_status() {return &_vtol_vehicle_status;}
-
+	//xjzhang
+	struct manual_control_setpoint_s 		*get_manual_control_sp() {return &_manual_control_sp;}
 	struct Params 					*get_params() {return &_params;}
 
 

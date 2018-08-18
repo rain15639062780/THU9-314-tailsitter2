@@ -66,11 +66,15 @@ private:
 	struct {
 		float front_trans_dur_p2;
 		float trans_thr_min;
+		bool motors_off_test;
+		float fw_pitch_trim;
 	} _params_tailsitter;
 
 	struct {
 		param_t front_trans_dur_p2;
 		param_t trans_thr_min;
+		param_t	motors_off_test;
+		param_t fw_pitch_trim;
 	} _params_handles_tailsitter;
 
 	enum vtol_mode {
