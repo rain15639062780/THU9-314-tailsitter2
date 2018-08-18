@@ -77,9 +77,9 @@ void FlightTask::_reset_yaw_setpoints()
 	_yaw_setpoint=_yaw;
 	_yawspeed_setpoint=0;
 }
-void FlightTask::_reset_z_setpoints()
+void FlightTask::_reset_z_setpoints(float delta)
 {
-	_position_setpoint(2)=_position(2);
+	_position_setpoint(2)=_position(2)+delta;
 }
 void FlightTask::_resetSetpoints()
 {

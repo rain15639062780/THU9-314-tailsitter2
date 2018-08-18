@@ -141,7 +141,7 @@ public:
 	}
 	//xj-zhang
 	void _reset_yaw_setpoints();
-	void _reset_z_setpoints();
+	void _reset_z_setpoints(float delta=0.0f);
 protected:
 
 	uORB::Subscription<vehicle_local_position_s> *_sub_vehicle_local_position{nullptr};
