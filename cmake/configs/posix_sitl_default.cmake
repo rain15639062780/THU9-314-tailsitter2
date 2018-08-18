@@ -88,7 +88,7 @@ set(config_module_list
 	modules/gnd_att_control
 	modules/gnd_pos_control
 	modules/mc_att_control
-	314-modules/mc_pos_control
+	modules/mc_pos_control
 	314-modules/vtol_att_control
 
 	#

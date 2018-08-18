@@ -336,7 +336,7 @@ PARAM_DEFINE_INT32(VT_FW_MOT_OFFID, 0);
  * @decimal 1
  * @group VTOL Attitude Control
  */
-PARAM_DEFINE_FLOAT(VT_TRANS_THR_MIN, 0.3);
+PARAM_DEFINE_FLOAT(VT_TRANS_THR_MIN, 0.4);
 /**
  * Fixed wing pitch trim
  *

@@ -44,8 +44,8 @@
 
 #define ARSP_YAW_CTRL_DISABLE 4.0f	// airspeed at which we stop controlling yaw during a front transition
 #define THROTTLE_TRANSITION_MAX 0.1f	// maximum added thrust above last value in transition
-#define PITCH_TRANSITION_FRONT_P1 -0.7f	 // pitch angle to switch to TRANSITION_P2,40 degrees
-#define GROUND_SPEED2_TRANSITION_FRONT_P1	25.0f // ground speed^2 to switch to TRANSITION_P2,5m/s*5m/s
+#define PITCH_TRANSITION_FRONT_P1 -0.53f	 // pitch angle to switch to TRANSITION_P2,30 degrees
+#define GROUND_SPEED2_TRANSITION_FRONT_P1	16.0f // ground speed^2 to switch to TRANSITION_P2,5m/s*5m/s
 #define PITCH_TRANSITION_FRONT_P2 -1.4f	// pitch angle to switch to FW,80 degrees
 #define PITCH_TRANSITION_BACK_P1 -1.1f	// pitch angle to switch to MC,50 degrees
 #define PITCH_TRANSITION_BACK_P2 -0.1f	// pitch angle to switch to MC
@@ -382,7 +382,7 @@ void Tailsitter::fill_actuator_outputs()
 		_actuators_out_1->control[actuator_controls_s::INDEX_ROLL] =//_actuators_mc_in->control[actuator_controls_s::INDEX_YAW]*_mc_yaw_weight+
 		-_actuators_fw_in->control[actuator_controls_s::INDEX_ROLL]* (1 - _mc_yaw_weight);
 		_actuators_out_1->control[actuator_controls_s::INDEX_PITCH] =
-			_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight+
+			//_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH] * _mc_pitch_weight+
 			_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] *(1 - _mc_pitch_weight);
 		 //(_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] + _params->fw_pitch_trim) *(1 - _mc_pitch_weight);
 		_actuators_out_1->control[actuator_controls_s::INDEX_THROTTLE] =
