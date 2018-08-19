@@ -66,8 +66,8 @@ private:
 	struct {
 		float front_trans_dur_p2;
 		float trans_thr_min;
-		bool motors_off_test;
 		float fw_pitch_trim;
+		int32_t motors_off_test;
 	} _params_tailsitter;
 
 	struct {

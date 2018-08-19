@@ -44,4 +44,4 @@ px4_add_module(
 	DEPENDS
 		pwm_limit
 	)
-
+#更改编译目标时需要同时更改vtol_att_control_main.h中添加的头文件，否则会出现启动错误

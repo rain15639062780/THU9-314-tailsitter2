@@ -82,7 +82,7 @@ Tailsitter::parameters_update()
 	param_get(_params_handles_tailsitter.trans_thr_min, &v);
 	_params_tailsitter.trans_thr_min = v;
 	param_get(_params_handles_tailsitter.motors_off_test, &v2);
-	_params_tailsitter.motors_off_test=(v2==1);
+	_params_tailsitter.motors_off_test= v2;
 	param_get(_params_handles_tailsitter.fw_pitch_trim, &v);
 	_params_tailsitter.fw_pitch_trim=v;
 }
@@ -346,7 +346,7 @@ void Tailsitter::fill_actuator_outputs()
 		_actuators_out_1->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE];	// throttle
 		//xj-zhang
-		if(_params_tailsitter.motors_off_test){
+		if(_params_tailsitter.motors_off_test==1){
 			_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = (_attc->get_manual_control_sp()->flaps + 1.0f)*0.25f;
 			_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE] -
 			             0.25f*(_attc->get_manual_control_sp()->flaps + 1.0f);
