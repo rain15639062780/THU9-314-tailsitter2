@@ -31,24 +31,17 @@
 #
 ############################################################################
 
-px4_add_git_submodule(TARGET git_ecl PATH "ecl")
-px4_add_git_submodule(TARGET git_matrix PATH "matrix")
-
-add_subdirectory(airspeed)
-add_subdirectory(battery)
-add_subdirectory(circuit_breaker)
-add_subdirectory(controllib)
-add_subdirectory(conversion)
-add_subdirectory(drivers)
-add_subdirectory(ecl)
-add_subdirectory(314-lib/FlightTasks)
-add_subdirectory(led)
-add_subdirectory(mathlib)
-add_subdirectory(mixer)
-add_subdirectory(perf)
-add_subdirectory(pid)
-add_subdirectory(pwm_limit)
-add_subdirectory(rc)
-add_subdirectory(terrain_estimation)
-add_subdirectory(tunes)
-add_subdirectory(version)
+px4_add_library(flight_tasks
+	tasks/FlightTask.cpp
+	tasks/FlightTaskManual.cpp
+	tasks/FlightTaskManualStabilized.cpp
+	tasks/FlightTaskOrbit.cpp
+	tasks/FlightTaskManualAltitude.cpp
+	tasks/FlightTaskManualAltitudeSmooth.cpp
+	tasks/FlightTaskManualPosition.cpp
+	tasks/FlightTaskManualPositionSmooth.cpp
+	tasks/Utility/ManualSmoothingZ.cpp
+	tasks/Utility/ManualSmoothingXY.cpp
+	SubscriptionArray.cpp
+	FlightTasks.cpp
+)

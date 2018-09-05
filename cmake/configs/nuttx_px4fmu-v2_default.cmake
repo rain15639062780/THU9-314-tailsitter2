@@ -18,7 +18,7 @@ set(config_module_list
 	#drivers/imu/bmi160
 	#drivers/barometer/bmp280
 	#drivers/bst
-	drivers/camera_trigger
+	#drivers/camera_trigger
 	#drivers/frsky_telemetry
 	drivers/gps
 	#drivers/hott
@@ -35,8 +35,8 @@ set(config_module_list
 	#drivers/oreoled
 	#drivers/protocol_splitter
 	drivers/pwm_input
-	#drivers/pwm_out_sim
-	drivers/px4flow
+	drivers/pwm_out_sim
+	#drivers/px4flow
 	drivers/px4fmu
 	drivers/px4io
 	drivers/rgbled
@@ -47,13 +47,13 @@ set(config_module_list
 	drivers/vmount
 
 	# distance sensors
-	drivers/distance_sensor/ll40ls
+	#drivers/distance_sensor/ll40ls
 	#drivers/distance_sensor/mb12xx
-	drivers/distance_sensor/sf0x
-	drivers/distance_sensor/sf1xx
-	drivers/distance_sensor/srf02
-	drivers/distance_sensor/teraranger
-	drivers/distance_sensor/tfmini
+	#drivers/distance_sensor/sf0x
+	#drivers/distance_sensor/sf1xx
+	#drivers/distance_sensor/srf02
+	#drivers/distance_sensor/teraranger
+	#drivers/distance_sensor/tfmini
 	#drivers/distance_sensor/ulanding
 	modules/sensors
 
@@ -120,13 +120,13 @@ set(config_module_list
 	#
 	# Vehicle Control
 	#
-	modules/fw_att_control
-	modules/fw_pos_control_l1
+	314-modules/fw_att_control
+	314-modules/fw_pos_control_l1
 	#modules/gnd_att_control
 	#modules/gnd_pos_control
 	modules/mc_att_control
-	modules/mc_pos_control
-	modules/vtol_att_control
+	314-modules/mc_pos_control
+	314-modules/vtol_att_control
 
 	#
 	# Logging

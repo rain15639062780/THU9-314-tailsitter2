@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2015 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,25 +30,13 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-
-px4_add_git_submodule(TARGET git_ecl PATH "ecl")
-px4_add_git_submodule(TARGET git_matrix PATH "matrix")
-
-add_subdirectory(airspeed)
-add_subdirectory(battery)
-add_subdirectory(circuit_breaker)
-add_subdirectory(controllib)
-add_subdirectory(conversion)
-add_subdirectory(drivers)
-add_subdirectory(ecl)
-add_subdirectory(314-lib/FlightTasks)
-add_subdirectory(led)
-add_subdirectory(mathlib)
-add_subdirectory(mixer)
-add_subdirectory(perf)
-add_subdirectory(pid)
-add_subdirectory(pwm_limit)
-add_subdirectory(rc)
-add_subdirectory(terrain_estimation)
-add_subdirectory(tunes)
-add_subdirectory(version)
+px4_add_module(
+	MODULE modules__mc_pos_control__mc_pos_control_tests
+	MAIN mc_pos_control_tests
+	SRCS
+		mc_pos_control_tests.cpp
+		../mc_pos_control_main.cpp
+		test_controlmath.cpp
+		../Utility/ControlMath.cpp
+	DEPENDS
+	)

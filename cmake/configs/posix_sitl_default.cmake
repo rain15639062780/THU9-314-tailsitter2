@@ -84,13 +84,13 @@ set(config_module_list
 	#
 	# Vehicle Control
 	#
-	modules/fw_att_control
-	modules/fw_pos_control_l1
-	modules/gnd_att_control
-	modules/gnd_pos_control
+	314-modules/fw_att_control
+	314-modules/fw_pos_control_l1
+	#modules/gnd_att_control
+	#modules/gnd_pos_control
 	modules/mc_att_control
-	modules/mc_pos_control
-	modules/vtol_att_control
+	314-modules/mc_pos_control
+	314-modules/vtol_att_control
 
 	#
 	# Logging
@@ -130,18 +130,18 @@ set(config_module_list
 
 	# Tutorial code from
 	# https://px4.io/dev/px4_simple_app
-	examples/px4_simple_app
+	#examples/px4_simple_app
 
 	# Tutorial code from
 	# https://px4.io/dev/debug_values
-	examples/px4_mavlink_debug
+	#examples/px4_mavlink_debug
 
 	# Tutorial code from
 	# https://px4.io/dev/example_fixedwing_control
-	examples/fixedwing_control
+	#examples/fixedwing_control
 
 	# Template Module
-	templates/module
+	#templates/module
 
 	# Hardware test
 	#examples/hwtest
