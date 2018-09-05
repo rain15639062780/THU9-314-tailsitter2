@@ -80,7 +80,7 @@
 #include <uORB/topics/vtol_vehicle_status.h>
 
 #include "tiltrotor.h"
-#include "tailsitter_test_1.h"
+#include "tailsitter.h"
 #include "standard.h"
 
 

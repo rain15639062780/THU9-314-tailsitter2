@@ -545,7 +545,6 @@ void FixedwingAttitudeControl::run()
 				_att_sp.pitch_body=fw_sp(1);
 				_att_sp.yaw_body=fw_sp(2);
 				Quatf(R_sp).copyTo(_att_sp.q_d);
-				PX4_INFO("pitch setpoint=%0.4f",(double)_att_sp.pitch_body);
 			}
 
 			// the position controller will not emit attitude setpoints in some modes

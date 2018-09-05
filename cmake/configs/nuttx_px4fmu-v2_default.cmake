@@ -16,10 +16,10 @@ set(config_module_list
 	drivers/barometer/ms5611
 	#drivers/blinkm
 	#drivers/bst
-	drivers/camera_trigger
+	#drivers/camera_trigger
 	#drivers/differential_pressure/ets
-	drivers/differential_pressure/ms4525
-	drivers/differential_pressure/ms5525
+	#drivers/differential_pressure/ms4525
+	#drivers/differential_pressure/ms5525
 	drivers/differential_pressure/sdp3x
 	drivers/distance_sensor/ll40ls
 	#drivers/distance_sensor/mb12xx
@@ -47,8 +47,8 @@ set(config_module_list
 	#drivers/oreoled
 	#drivers/protocol_splitter
 	drivers/pwm_input
-	#drivers/pwm_out_sim
-	drivers/px4flow
+	drivers/pwm_out_sim
+	#drivers/px4flow
 	drivers/px4fmu
 	drivers/px4io
 	drivers/rgbled

@@ -39,7 +39,7 @@ px4_add_module(
 		vtol_att_control_main.cpp
 		tiltrotor.cpp
 		vtol_type.cpp
-		tailsitter_test_1.cpp
+		tailsitter.cpp
 		standard.cpp
 	DEPENDS
 		pwm_limit
