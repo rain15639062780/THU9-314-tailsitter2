@@ -482,6 +482,7 @@ then
 		then
 			if px4io start
 			then
+				echo " use io as output"
 				sh /etc/init.d/rc.io
 			else
 				echo "PX4IO start failed" >> $LOG_FILE
@@ -493,6 +494,7 @@ then
 		then
 			if fmu mode_$FMU_MODE $FMU_ARGS
 			then
+				echo "use FMU as output"
 			else
 				echo "FMU start failed" >> $LOG_FILE
 				tune_control play -m ${TUNE_ERR}
@@ -513,6 +515,7 @@ then
 
 			if mkblctrl $MKBLCTRL_ARG
 			then
+				echo "mkblctrl start as">>$MKBLCTRL_ARG
 			else
 				tune_control play -m ${TUNE_ERR}
 			fi
@@ -524,6 +527,7 @@ then
 		then
 			if pwm_out_sim start
 			then
+				echo "pwm_out_sim start"
 			else
 				tune_control play -m ${TUNE_ERR}
 			fi
@@ -538,6 +542,7 @@ then
 			then
 				if px4io start
 				then
+					echo "use io as PPM input"
 					sh /etc/init.d/rc.io
 				else
 					echo "PX4IO start failed" >> $LOG_FILE
@@ -549,6 +554,7 @@ then
 			then
 				if fmu mode_${FMU_MODE} $FMU_ARGS
 				then
+					echo "use fmu as PPM input"
 				else
 					echo "FMU mode_${FMU_MODE} start failed" >> $LOG_FILE
 					tune_control play -m ${TUNE_ERR}
@@ -596,7 +602,7 @@ then
 			# Avoid using either of the two available serials
 			set MAVLINK_F none
 		fi
-fi
+	fi
 
 	if [ "x$MAVLINK_F" == xnone ]
 	then
